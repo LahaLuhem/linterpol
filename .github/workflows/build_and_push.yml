@@ -1,0 +1,82 @@
+name: Build & Publish
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+# Single-job multi-arch build: the image only COPYs prebuilt per-arch binaries, so the
+# sole emulated step is a one-line useradd and a native-runner matrix isn't worth it
+# (see APPENDIX.md#single-job-buildx). Publish only on master pushes or a manual run;
+# pull requests build-validate both arches without pushing. The :latest tag is shared, so
+# gating pushes keeps branches from clobbering it. Verify a branch without merging:
+#   gh workflow run build_and_push.yml --ref <branch>
+
+# Serialize publishes per ref so concurrent runs don't race on the shared :latest tag.
+# Don't cancel an in-flight publish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/lahaluhem/linterpol
+      PUBLISH: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      # arm64 is the only emulated platform (amd64 is native to the runner); the only step
+      # that executes in the arm64 rootfs is the Dockerfile's one-line useradd.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Login to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # On publish runs this pushes the multi-arch index; on pull requests push=false, so
+      # both arches build (validation) but nothing is pushed.
+      - name: Build (and push on publish runs)
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A publish is only "done" when the manifest carries both arches (hard rule 8).
+      - name: Verify the manifest carries both arches
+        if: env.PUBLISH == 'true'
+        run: |
+          inspect="$(docker buildx imagetools inspect "$IMAGE:latest")"
+          echo "$inspect"
+          for plat in linux/amd64 linux/arm64; do
+            if ! grep -qF "$plat" <<<"$inspect"; then
+              echo "ERROR: published manifest is missing $plat" >&2
+              exit 1
+            fi
+          done
+          echo "OK: manifest carries linux/amd64 + linux/arm64"
