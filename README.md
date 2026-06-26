@@ -13,7 +13,7 @@ hadolint, actionlint, shellcheck. Full list with versions: [LINTERS.md](./LINTER
 ## Build
 
 ```bash
-./build.sh          # builds linterpol:local for the host arch, then prints tool versions
+./scripts/build.sh          # builds linterpol:local for the host arch, then prints tool versions
 ```
 
 ## Use

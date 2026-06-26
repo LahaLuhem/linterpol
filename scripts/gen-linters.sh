@@ -18,12 +18,12 @@
 # hand-written and left untouched.
 #
 # Usage:
-#   ./gen-linters.sh           rewrite the table in LINTERS.md
-#   ./gen-linters.sh --check   exit non-zero if LINTERS.md is stale; write nothing
+#   ./scripts/gen-linters.sh           rewrite the table in LINTERS.md
+#   ./scripts/gen-linters.sh --check   exit non-zero if LINTERS.md is stale; write nothing
 #
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 dockerfile='Dockerfile'
 manifest='LINTERS.md'
@@ -120,7 +120,7 @@ main() {
     if diff -u "$manifest" "$tmp_out" >/dev/null; then
       echo "LINTERS.md is up to date"
     else
-      echo "LINTERS.md is stale; run ./gen-linters.sh" >&2
+      echo "LINTERS.md is stale; run ./scripts/gen-linters.sh" >&2
       diff -u "$manifest" "$tmp_out" >&2 || true
       exit 1
     fi
