@@ -3,6 +3,7 @@
 - [`AGENTS.md` and `CLAUDE.md` are symlinks into `.ai/`](#ai-files-symlinked)
 - [Why this repo exists: one multi-arch tools image](#why-linterpol)
 - [The two-lane architecture](#two-lane-architecture)
+- [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [Reproducibility: digest pins + Dependabot](#digest-pins-dependabot)
 - [Publishing is gated to `master` and manual dispatch](#publish-gating)
@@ -80,6 +81,31 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 `container-structure-test` (planned) is the first tool that won't be a pure Lane-1 drop-in: it
 talks to a Docker daemon, so it needs the host socket mounted and the image-under-test loaded. Treat
 it as its own documented case, not the read-only-mount default the lint tools follow.
+
+---
+
+<a id="generated-manifest"></a>
+## `LINTERS.md` is generated from the Dockerfile
+
+- **Decision:** the tool table in `LINTERS.md` is produced by [`gen-linters.sh`](./gen-linters.sh),
+  not hand-maintained. The `Dockerfile` is the single source of truth.
+- **Why:** Dependabot bumps the `FROM` refs in the `Dockerfile`, but it can't touch a markdown
+  table, so a hand-typed version list silently goes stale on every bump (worse than no table). With
+  the table generated, a bump flows straight through and the doc can't disagree with the image.
+- **Where the data comes from:** for a Lane-1 tool the version and upstream image are parsed off its
+  `FROM <img>:<tag>@<digest> AS <name>` line; the two things not in a `FROM` (what it lints, its repo
+  link) come from a `# linter: lints: … | repo: …` comment directly above that `FROM`. A Lane-2 tool
+  has no `FROM`, so its annotation also carries `tool:`, `version:`, and `lane: 2`. One tool is still
+  one place to edit.
+- **The Version column is the raw tag** (e.g. `v2.14.0-alpine`): exactly what's in the `FROM`, with
+  no flavor-stripping heuristic, so it tracks Dependabot literally.
+- **Drift guard:** `./gen-linters.sh --check` regenerates and diffs against the committed file,
+  exiting non-zero on a mismatch. It runs locally and is meant to run in `test.yml`, so a stale
+  `LINTERS.md` fails CI instead of merging.
+- **Only the table is generated.** It sits between `<!-- linters:start -->` / `<!-- linters:end -->`
+  markers; the surrounding prose (the "Adding a linter" guide) is hand-written and left alone.
+- **Rejected:** a sidecar data file (e.g. `linters.yaml`) merged with the Dockerfile versions. It
+  would split "add a tool" across two files; the annotation keeps everything in the Dockerfile.
 
 ---
 

@@ -13,8 +13,14 @@
 # The tag is the readable version; the digest makes the build reproducible. Dependabot
 # (.github/dependabot.yml) bumps both. Each tag is a multi-arch index, so the digest
 # pin stays multi-arch.
+#
+# The `# linter:` line above each FROM feeds LINTERS.md (run ./gen-linters.sh): version
+# and image come from the FROM, the `lints:` / `repo:` fields from the annotation.
+# linter: lints: Dockerfiles | repo: https://github.com/hadolint/hadolint
 FROM hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
+# linter: lints: GitHub Actions workflows | repo: https://github.com/rhysd/actionlint
 FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 AS actionlint
+# linter: lints: shell scripts | repo: https://github.com/koalaman/shellcheck
 FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
 
 # --- Assembled image ---
