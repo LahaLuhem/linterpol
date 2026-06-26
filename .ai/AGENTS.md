@@ -52,7 +52,10 @@ linterpol/
 ├── APPENDIX.md             design rationale (anchor-keyed)
 ├── .github/
 │   ├── dependabot.yml      docker + github-actions, weekly, grouped
-│   └── workflows/          test.yml (self-test/dogfood), build_and_push.yml (multi-arch publish)
+│   └── workflows/
+│       ├── test.yml             self-test / dogfood (lint + LINTERS.md drift check)
+│       ├── build_and_push.yml   single-job multi-arch publish (gated)
+│       └── dependabot-regen.yml regenerate LINTERS.md on Dependabot PRs
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
@@ -93,6 +96,9 @@ linterpol/
 3. `build_and_push.yml` does the single-job multi-arch build and pushes to
    `ghcr.io/lahaluhem/linterpol`, gated to `master` + dispatch; PRs build-validate both arches.
 4. Dependabot bumps the `FROM` digests and action pins weekly.
+5. On a Dependabot PR that bumps a tool's `FROM` tag, `dependabot-regen.yml` regenerates
+   `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s drift
+   check clears automatically.
 
 ## Testing
 

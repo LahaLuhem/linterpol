@@ -1,0 +1,67 @@
+name: Regenerate LINTERS.md
+
+# When Dependabot bumps a tool's FROM tag, the generated table in LINTERS.md goes stale and
+# test.yml's `gen-linters.sh --check` fails the PR. This regenerates the table and commits it
+# back to the Dependabot PR using the lahaluhem-ci-bot App token. An App-token push (unlike a
+# GITHUB_TOKEN push) re-triggers workflows, so test.yml re-runs and the drift check clears on
+# its own.
+#
+# Why pull_request_target, not pull_request: a Dependabot-triggered `pull_request` run gets a
+# read-only token and can't read Actions secrets, so vars.APP_ID / secrets.APP_PRIVATE_KEY
+# would be empty. pull_request_target runs in the base-repo context where they're available.
+# We only ever act on Dependabot's own PRs (gated below); Dependabot authors them from
+# dependency metadata (a third party can't inject code into a dependabot[bot] PR), and it only
+# edits the Dockerfile, never gen-linters.sh, so checking out the head to run it is safe here.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - Dockerfile
+
+# Don't pile up regen runs on a PR that gets several pushes in a row.
+concurrency:
+  group: linters-regen-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# The push is done with the App token; GITHUB_TOKEN itself needs nothing beyond read.
+permissions:
+  contents: read
+
+jobs:
+  regen:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint lahaluhem-ci-bot token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout the PR branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Regenerate LINTERS.md from the Dockerfile
+        run: ./scripts/gen-linters.sh
+
+      - name: Commit back if the table changed
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet -- LINTERS.md; then
+            echo "LINTERS.md already in sync with the Dockerfile; nothing to commit."
+            exit 0
+          fi
+          # The numeric prefix is the bot's GitHub user id (stable per App) so the commit
+          # links to lahaluhem-ci-bot's avatar.
+          git config user.name  "${APP_SLUG}[bot]"
+          git config user.email "287673903+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add LINTERS.md
+          git commit -m 'chore: regenerate LINTERS.md for dependency bump'
+          git push origin "HEAD:${HEAD_REF}"
