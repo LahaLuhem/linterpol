@@ -51,7 +51,7 @@ linterpol/
 ├── APPENDIX.md             design rationale (anchor-keyed)
 ├── .github/
 │   ├── dependabot.yml      docker + github-actions, weekly, grouped
-│   └── workflows/          PLANNED: test.yml (self-test), build_and_push.yml (publish)
+│   └── workflows/          test.yml (self-test/dogfood); PLANNED: build_and_push.yml (publish)
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
@@ -86,7 +86,7 @@ linterpol/
 
 1. `./build.sh` builds `linterpol:local` for the host arch and self-checks (prints each tool's
    version).
-2. *(planned)* `test.yml` builds the image and **dogfoods** it: lints this repo's own Dockerfile
+2. `test.yml` builds the image and **dogfoods** it: lints this repo's own Dockerfile
    / workflows / shell scripts with the image it just built, and runs `./gen-linters.sh --check`
    to fail if `LINTERS.md` has drifted from the Dockerfile.
 3. *(planned)* `build_and_push.yml` does the single-job multi-arch build and pushes to
@@ -121,7 +121,7 @@ standalone setup:
       local tag, and chrysalis's `LINTERPOL_IMAGE` default.
 - [ ] **Finalize `README.md`** (its Roadmap still says "Renovate" and lists digest-pinning as a
       TODO; both are now done/changed) and **add a `LICENSE`** (MIT, matching chrysalis).
-- [ ] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also run
+- [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
       `./gen-linters.sh --check`).
 - [ ] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to master + dispatch.
 - [ ] **First GHCR publish** (outward-facing, so confirm-first), then verify both arches via
