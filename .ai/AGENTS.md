@@ -52,7 +52,7 @@ linterpol/
 ├── APPENDIX.md             design rationale (anchor-keyed)
 ├── .github/
 │   ├── dependabot.yml      docker + github-actions, weekly, grouped
-│   └── workflows/          test.yml (self-test/dogfood); PLANNED: build_and_push.yml (publish)
+│   └── workflows/          test.yml (self-test/dogfood), build_and_push.yml (multi-arch publish)
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
@@ -90,8 +90,8 @@ linterpol/
 2. `test.yml` builds the image and **dogfoods** it: lints this repo's own Dockerfile
    / workflows / shell scripts with the image it just built, and runs `./scripts/gen-linters.sh --check`
    to fail if `LINTERS.md` has drifted from the Dockerfile.
-3. *(planned)* `build_and_push.yml` does the single-job multi-arch build and pushes to
-   `ghcr.io/lahaluhem/linterpol`, gated to `master` + dispatch.
+3. `build_and_push.yml` does the single-job multi-arch build and pushes to
+   `ghcr.io/lahaluhem/linterpol`, gated to `master` + dispatch; PRs build-validate both arches.
 4. Dependabot bumps the `FROM` digests and action pins weekly.
 
 ## Testing
@@ -120,11 +120,12 @@ standalone setup:
 
 - [x] **Pick the final name** (`Linterpol`); renamed across the image `LABEL`s, `README`, the
       local tag, and chrysalis's `LINTERPOL_IMAGE` default.
-- [ ] **Finalize `README.md`** (its Roadmap still says "Renovate" and lists digest-pinning as a
-      TODO; both are now done/changed) and **add a `LICENSE`** (MIT, matching chrysalis).
+- [x] **`README.md` finalized** (Roadmap trimmed to the pending first publish; the stale
+      digest-pinning / Renovate items removed).
+- [x] **`LICENSE` added** (MIT, matching chrysalis).
 - [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
       `./scripts/gen-linters.sh --check`).
-- [ ] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to master + dispatch.
+- [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to master + dispatch.
 - [ ] **First GHCR publish** (outward-facing, so confirm-first), then verify both arches via
       `docker manifest inspect`.
 - [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE`'s default from `linterpol:local` to the published

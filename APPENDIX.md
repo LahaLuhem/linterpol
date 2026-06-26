@@ -145,8 +145,6 @@ it as its own documented case, not the read-only-mount default the lint tools fo
 <a id="publish-gating"></a>
 ## Publishing is gated to `master` and manual dispatch
 
-*(Applies once `build_and_push.yml` exists.)*
-
 - **Publish on `master` pushes and `workflow_dispatch`; pull requests build-validate without
   pushing.** The consumer tag (`:latest`) is shared, so gating publishing keeps every branch from
   clobbering it, while PRs still validate both arches and a deliberate manual dispatch can

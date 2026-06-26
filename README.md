@@ -56,5 +56,4 @@ the linter list myself, which is the whole point here.
 
 ## Roadmap
 
-- Publish multi-arch (`linux/amd64` + `linux/arm64`) to a registry.
-- Pin upstreams by digest and let Renovate bump them.
+- First multi-arch publish to `ghcr.io/lahaluhem/linterpol` (the `build_and_push.yml` workflow is in place).
