@@ -13,7 +13,8 @@ Docker image bundling the CI lint/check tools used across the author's repos, pu
 instead of every contributor installing the tools by hand.
 
 Bundled today: **hadolint** (Dockerfiles), **actionlint** (GitHub workflows), **shellcheck**
-(shell). Planned: **container-structure-test**. Full list: [`LINTERS.md`](./LINTERS.md).
+(shell), **container-structure-test** (container image structure). Full list:
+[`LINTERS.md`](./LINTERS.md).
 
 ## Scope — what this repo is and is NOT
 
@@ -27,15 +28,19 @@ Bundled today: **hadolint** (Dockerfiles), **actionlint** (GitHub workflows), **
 
 - **Docker Buildx** — multi-platform builds. The publish path is a **single-job** multi-arch
   build (`buildx --platform linux/amd64,linux/arm64 --push`), not a native-runner matrix: the
-  image only `COPY`s prebuilt per-arch binaries, so there is no native compilation and the QEMU
-  penalty is negligible. See [`APPENDIX.md#single-job-buildx`](./APPENDIX.md#single-job-buildx).
-- **Two-lane architecture** — static-binary tools vs package-manager tools. See
-  [`LINTERS.md`](./LINTERS.md) and [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture).
-- **GitHub Actions** — `.github/workflows/` (planned: `test.yml` self-test, `build_and_push.yml` publish).
+  image only lands prebuilt per-arch binaries (a `COPY --from` for Lane 1, a verified download for
+  Lane 2), so there is no native compilation and the QEMU penalty is negligible. See
+  [`APPENDIX.md#single-job-buildx`](./APPENDIX.md#single-job-buildx).
+- **Two-lane architecture** — static-binary tools with an official image (Lane 1) vs
+  downloaded-binary / package-manager tools (Lane 2). See [`LINTERS.md`](./LINTERS.md) and
+  [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture).
+- **GitHub Actions** — `.github/workflows/`: `test.yml` self-test, `build_and_push.yml` publish,
+  `renovate-regen.yml` manifest regen.
 - **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
-- **Dependabot** — version tracking (`.github/dependabot.yml`): the `docker` ecosystem bumps the
-  digest-pinned `FROM`s, `github-actions` bumps the workflow pins. Weekly, grouped. See
-  [`APPENDIX.md#digest-pins-dependabot`](./APPENDIX.md#digest-pins-dependabot).
+- **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
+  and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
+  `container-structure-test` binary version. Weekly. See
+  [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
 - **Bash** — `scripts/build.sh` (local build + self-check) and `scripts/gen-linters.sh`.
 
 ## Repo layout
@@ -51,11 +56,11 @@ linterpol/
 ├── README.md               what it is, usage, architecture
 ├── APPENDIX.md             design rationale (anchor-keyed)
 ├── .github/
-│   ├── dependabot.yml      docker + github-actions, weekly, grouped
+│   ├── renovate.jsonc      config:best-practices + a custom manager for c-s-t; weekly
 │   └── workflows/
 │       ├── test.yml             self-test / dogfood (lint + LINTERS.md drift check)
 │       ├── build_and_push.yml   single-job multi-arch publish (gated)
-│       └── dependabot-regen.yml regenerate LINTERS.md on Dependabot PRs
+│       └── renovate-regen.yml   regenerate LINTERS.md on Renovate PRs
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
@@ -66,8 +71,9 @@ linterpol/
 2. **Registry is `ghcr.io/lahaluhem`** (lowercase).
 3. **Two lanes; one tool = one unit of change.** A static binary with an official image goes in
    **Lane 1** (a `# linter:` annotation + `FROM <img>:<tag>@<digest> AS <name>` + `COPY --from=<name> …`);
-   a tool that needs a runtime / package manager goes in **Lane 2** (the install block, with a
-   self-contained `# linter:` annotation). Every bundled tool gets a row in [`LINTERS.md`](./LINTERS.md),
+   a tool with no usable official image goes in **Lane 2** (a package-manager install block, or a
+   prebuilt binary downloaded and checksum-verified in a stage then `COPY`d in), with a
+   self-contained `# linter:` annotation. Every bundled tool gets a row in [`LINTERS.md`](./LINTERS.md),
    whose table is **generated** from the Dockerfile by `./scripts/gen-linters.sh` (run it after adding or
    removing a tool; never hand-edit the table). See
    [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture) and
@@ -76,9 +82,11 @@ linterpol/
    ships both arches: `docker buildx imagetools inspect <ref>` should show an image index with
    both platforms. (All current tools do, natively.)
 5. **Pin upstreams by digest** (`tag@sha256:…`: the tag is the readable version, the digest makes
-   the build reproducible). Don't hand-edit a digest except when adding/removing a tool;
-   **Dependabot owns the bumps**. See
-   [`APPENDIX.md#digest-pins-dependabot`](./APPENDIX.md#digest-pins-dependabot).
+   the build reproducible). The one exception is `container-structure-test`, which has no usable
+   image and is a version-pinned, checksum-verified downloaded binary (its version lives in the
+   `CST_VERSION` ARG). Don't hand-edit a digest or that version except when adding/removing a tool;
+   **Renovate owns the bumps**. See
+   [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
 6. **Publishing is outward-facing, so confirm-first**, and gated to `main` pushes + manual
    `workflow_dispatch`; pull requests build-validate without pushing. See
    [`APPENDIX.md#publish-gating`](./APPENDIX.md#publish-gating).
@@ -95,10 +103,10 @@ linterpol/
    to fail if `LINTERS.md` has drifted from the Dockerfile.
 3. `build_and_push.yml` does the single-job multi-arch build and pushes to
    `ghcr.io/lahaluhem/linterpol`, gated to `main` + dispatch; PRs build-validate both arches.
-4. Dependabot bumps the `FROM` digests and action pins weekly.
-5. On a Dependabot PR that bumps a tool's `FROM` tag, `dependabot-regen.yml` regenerates
-   `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s drift
-   check clears automatically.
+4. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
+5. On a Renovate PR that bumps a tool's `FROM` tag or the `CST_VERSION` ARG, `renovate-regen.yml`
+   regenerates `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s
+   drift check clears automatically.
 
 ## Testing
 
@@ -115,24 +123,29 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
   annotation above its `FROM` (feeds `LINTERS.md`); pin `tag@digest`; in Lane 2 clean apt lists in
   the same layer (`rm -rf /var/lib/apt/lists/*`). The image runs as the non-root `lint` user and
   expects the repo mounted read-only at `/work`.
-- **Workflow YAML:** 2-space indent; pin actions by **SHA + a version comment** (so Dependabot
+- **Workflow YAML:** 2-space indent; pin actions by **SHA + a version comment** (so Renovate
   tracks them); keep `run:` blocks `actionlint`/shellcheck-clean.
 - **Bash:** `set -euo pipefail`; quote expansions.
 
 ## Status & remaining polish (as of 2026-06-26; prune as done)
 
-The image, `scripts/build.sh`, digest pins, and Dependabot are in place and verified. To finish the
-standalone setup:
+The image (now including container-structure-test), `scripts/build.sh`, digest pins, and Renovate
+are in place and verified. To finish the standalone setup:
 
 - [x] **Pick the final name** (`Linterpol`); renamed across the image `LABEL`s, `README`, the
       local tag, and chrysalis's `LINTERPOL_IMAGE` default.
-- [x] **`README.md` finalized** (Roadmap trimmed to the pending first publish; the stale
-      digest-pinning / Renovate items removed).
+- [x] **`README.md` finalized** (usage, architecture, roadmap).
 - [x] **`LICENSE` added** (MIT, matching chrysalis).
 - [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
       `./scripts/gen-linters.sh --check`).
 - [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to main + dispatch.
-- [ ] **First GHCR publish** (outward-facing, so confirm-first), then verify both arches via
-      `docker manifest inspect`.
-- [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE`'s default from `linterpol:local` to the published
-      ref.
+- [x] **`container-structure-test` added** (Lane-2 downloaded binary; both arches verified, in
+      `LINTERS.md`).
+- [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `renovate-regen.yml`; tracks the
+      `FROM`s, action SHAs, and the c-s-t version).
+- [x] **First GHCR publish** done and verified: `ghcr.io/lahaluhem/linterpol:latest` is a multi-arch
+      manifest (linux/amd64 + linux/arm64), and chrysalis pins a digest of it.
+- [ ] **Republish with `container-structure-test`** (outward-facing, so confirm-first), then verify
+      both arches via `docker manifest inspect`.
+- [ ] Back in chrysalis: bump the pinned `linterpol` digest to the c-s-t-carrying image (Renovate
+      handles this once it's republished).

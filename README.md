@@ -12,7 +12,8 @@ Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
-hadolint, actionlint, shellcheck. Full list with versions in [LINTERS.md](./LINTERS.md).
+hadolint, actionlint, shellcheck, and container-structure-test. Full list with versions in
+[LINTERS.md](./LINTERS.md).
 
 ## Use
 
@@ -25,10 +26,16 @@ docker run --rm -v "$PWD:/work:ro" "$img" shellcheck scripts/*.sh
 docker run --rm -v "$PWD:/work:ro" "$img" sh -c 'actionlint .github/workflows/*.yml'
 ```
 
-Run it with no args and it self-checks, printing all three tool versions.
+Run it with no args and it self-checks, printing all four tool versions.
 
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
 and never writes to your mount.
+
+`container-structure-test` is the odd one out: it inspects a built image rather than files in your
+checkout, so instead of a `:ro` source mount it needs the Docker socket mounted (or an image tarball
+via `--driver tar`). See the
+[upstream docs](https://github.com/GoogleContainerTools/container-structure-test) for the spec
+format and drivers.
 
 ## Build it yourself
 
@@ -65,5 +72,6 @@ linter list myself, but that's the whole point here.
 
 ## Roadmap
 
-First multi-arch publish is done. From here it's mostly keeping the linter set current and
-adding tools as I reach for them in other repos.
+First multi-arch publish is done. Next is a republish that adds container-structure-test; from
+there it's mostly keeping the tool set current (Renovate handles the bumps) and adding tools as I
+reach for them in other repos.

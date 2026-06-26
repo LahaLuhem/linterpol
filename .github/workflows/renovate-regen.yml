@@ -1,20 +1,19 @@
 name: Regenerate LINTERS.md
 
-# When Dependabot bumps a tool's FROM tag, the generated table in LINTERS.md goes stale and
-# test.yml's `gen-linters.sh --check` fails the PR. This regenerates the table and commits it
-# back to the Dependabot PR using the lahaluhem-ci-bot App token. An App-token push (unlike a
-# GITHUB_TOKEN push) re-triggers workflows, so test.yml re-runs and the drift check clears on
-# its own.
+# When Renovate bumps a tool's FROM tag (or the container-structure-test version ARG), the
+# generated table in LINTERS.md goes stale and test.yml's `gen-linters.sh --check` fails the PR.
+# This regenerates the table and commits it back to the Renovate PR using the lahaluhem-ci-bot
+# App token. An App-token push (unlike a GITHUB_TOKEN push) re-triggers workflows, so test.yml
+# re-runs and the drift check clears on its own.
 #
-# Why pull_request_target, not pull_request: a Dependabot-triggered `pull_request` run gets a
-# read-only token and can't read Actions secrets, so vars.APP_ID / secrets.APP_PRIVATE_KEY
-# would be empty. pull_request_target runs in the base-repo context where they're available.
-# We only ever act on Dependabot's own PRs (gated below); Dependabot authors them from
-# dependency metadata (a third party can't inject code into a dependabot[bot] PR), and it only
-# edits the Dockerfile, never gen-linters.sh, so checking out the head to run it is safe here.
+# Plain pull_request (not pull_request_target): Renovate isn't special-cased the way Dependabot
+# is, so a pull_request run on Renovate's same-repo PR can read the App secrets and push back.
+# That avoids the pull_request_target footgun (running PR-head code with base-repo secrets). We
+# still gate to renovate[bot]'s own PRs (which only edit the Dockerfile, per the paths filter);
+# the branch lives in this repo (the Mend app pushes it), so a third party can't inject code.
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - Dockerfile
@@ -30,7 +29,7 @@ permissions:
 
 jobs:
   regen:
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: github.event.pull_request.user.login == 'renovate[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Mint lahaluhem-ci-bot token

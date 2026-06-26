@@ -1,0 +1,30 @@
+// Renovate config for Linterpol.
+// .jsonc (JSON-with-comments), like chrysalis: Renovate recommends it for commented configs
+// and editors validate it against the schema below natively.
+// Options reference: https://docs.renovatebot.com/configuration-options/
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
+  // config:best-practices digest-pins Docker images and SHA-pins Actions; weekly PRs.
+  "extends": ["config:best-practices", "schedule:weekly"],
+
+  // Managers in play: dockerfile (the FROM tag@digest pins), github-actions (the workflow
+  // action SHAs), custom.regex (the container-structure-test release binary, marked below).
+  "enabledManagers": ["dockerfile", "github-actions", "custom.regex"],
+
+  "customManagers": [
+    {
+      // container-structure-test has no usable multi-arch image, so it's a downloaded binary
+      // pinned by an ARG in the Dockerfile (see that file's Lane-2 stage). Renovate tracks the
+      // release tag here; renovate-regen.yml then refreshes LINTERS.md on the bump PR.
+      "description": "Track the container-structure-test release binary pinned in the Dockerfile.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      // Marker line `# renovate: datasource=… depName=…` then `ARG CST_VERSION=<vX.Y.Z>`;
+      // datasource + depName come from the marker, currentValue is the version.
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG CST_VERSION=(?<currentValue>\\S+)"
+      ]
+    }
+  ]
+}

@@ -9,9 +9,9 @@ Claude-Code-specific guidance. Project facts, stack, repo layout, and hard rules
 You're assisting with **Linterpol**: a repo whose job is to **build and publish** one small,
 multi-arch (`amd64` + `arm64`) Docker image bundling CI lint/check tools, to
 `ghcr.io/lahaluhem`, for reuse across the author's repos. *How or where the image is consumed is
-out of scope.* The repo is still being bootstrapped (not yet published). Treat
-the user as technical and direct. Published images are outward-facing, so publishing is a
-confirm-first action.
+out of scope.* The image is published (multi-arch) at `ghcr.io/lahaluhem/linterpol:latest`; a
+republish is needed whenever the tool set changes. Treat the user as technical and direct.
+Published images are outward-facing, so publishing is a confirm-first action.
 
 ## Communication
 
@@ -53,8 +53,9 @@ confirm-first action.
 This is an Apple-Silicon host with OrbStack, so you can build `linux/arm64` natively and run the
 tools, and build `linux/amd64` under emulation. All current tools ship native `arm64`. When adding
 a tool, confirm it runs on **both** arches (`docker buildx imagetools inspect <ref>` for the
-upstream; a quick `--platform` build to run it). The only emulated step in the build itself is the
-one-line `useradd`. Report what you verified and what you did NOT.
+upstream; a quick `--platform` build to run it). The only emulated steps in the build itself are the
+`container-structure-test` checksum-verify and the one-line `useradd`. Report what you verified and
+what you did NOT.
 
 ## Definition of done
 
@@ -79,7 +80,7 @@ one-line `useradd`. Report what you verified and what you did NOT.
 - **Publishing the image** — anything that pushes to `ghcr.io/lahaluhem`, including a
   `workflow_dispatch` publish on a branch — is **confirm-first** (outward-facing).
 - **Any git mutation** — see *VCS* above.
-- **Hand-editing pinned digests in the `Dockerfile`** — that's Dependabot's job, except when you're
-  adding or removing a tool.
+- **Hand-editing pinned digests in the `Dockerfile`** (or the `container-structure-test`
+  `CST_VERSION` ARG) — that's Renovate's job, except when you're adding or removing a tool.
 - **Destructive Docker on shared state** (`docker system prune`, removing the user's images/volumes)
   — ask first.

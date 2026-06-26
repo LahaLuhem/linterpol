@@ -5,7 +5,7 @@
 - [The two-lane architecture](#two-lane-architecture)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
-- [Reproducibility: digest pins + Dependabot](#digest-pins-dependabot)
+- [Reproducibility: digest pins + Renovate](#reproducibility-renovate)
 - [Publishing is gated to `main` and manual dispatch](#publish-gating)
 
 <!-- TOC end -->
@@ -78,9 +78,17 @@ what keeps the image **modular and scalable**: any future tool has an obvious ho
 grows into many heterogeneous tools, that is the cue to switch its runner to
 [pre-commit](https://pre-commit.com) rather than hand-rolling installs.
 
-`container-structure-test` (planned) is the first tool that won't be a pure Lane-1 drop-in: it
-talks to a Docker daemon, so it needs the host socket mounted and the image-under-test loaded. Treat
-it as its own documented case, not the read-only-mount default the lint tools follow.
+`container-structure-test` is the first tool that isn't a pure Lane-1 drop-in, in two ways:
+
+- **Distribution:** it ships no usable multi-arch image (`gcr.io/gcp-runtimes/container-structure-test`
+  is amd64-only and last built in 2023), so instead of a `COPY --from` it's a Lane-2 download: a
+  throwaway stage fetches the per-arch release binary, verifies it against the release's own
+  `checksums.txt`, and the final image `COPY`s just the binary. The version is pinned by an `ARG`
+  (Renovate-tracked); see [#reproducibility-renovate](#reproducibility-renovate).
+- **Runtime:** unlike the lint tools, which read the read-only-mounted sources, it loads and inspects
+  a Docker *image*. So it needs either the host Docker socket mounted (Docker-out-of-Docker) or an
+  image tarball via `--driver tar`. The repo's own self-test uses the tar driver (no socket needed);
+  wiring the socket path for real consumers is their job, not this image's.
 
 ---
 
@@ -89,16 +97,19 @@ it as its own documented case, not the read-only-mount default the lint tools fo
 
 - **Decision:** the tool table in `LINTERS.md` is produced by [`gen-linters.sh`](./scripts/gen-linters.sh),
   not hand-maintained. The `Dockerfile` is the single source of truth.
-- **Why:** Dependabot bumps the `FROM` refs in the `Dockerfile`, but it can't touch a markdown
-  table, so a hand-typed version list silently goes stale on every bump (worse than no table). With
-  the table generated, a bump flows straight through and the doc can't disagree with the image.
+- **Why:** Renovate bumps the `FROM` refs (and the `container-structure-test` version ARG) in the
+  `Dockerfile`, but it can't touch a markdown table, so a hand-typed version list silently goes
+  stale on every bump (worse than no table). With the table generated, a bump flows straight
+  through and the doc can't disagree with the image.
 - **Where the data comes from:** for a Lane-1 tool the version and upstream image are parsed off its
   `FROM <img>:<tag>@<digest> AS <name>` line; the two things not in a `FROM` (what it lints, its repo
   link) come from a `# linter: lints: … | repo: …` comment directly above that `FROM`. A Lane-2 tool
   has no `FROM`, so its annotation also carries `tool:`, `version:`, and `lane: 2`. One tool is still
   one place to edit.
-- **The Version column is the raw tag** (e.g. `v2.14.0-alpine`): exactly what's in the `FROM`, with
-  no flavor-stripping heuristic, so it tracks Dependabot literally.
+- **The Version column is the raw pin:** for a Lane-1 tool, the tag from its `FROM` (e.g.
+  `v2.14.0-alpine`); for a Lane-2 downloaded binary, the value of its `ARG …_VERSION` line (e.g.
+  `container-structure-test`'s `CST_VERSION`). No flavor-stripping heuristic, so it tracks whatever
+  Renovate writes, literally.
 - **Drift guard:** `./scripts/gen-linters.sh --check` regenerates and diffs against the committed file,
   exiting non-zero on a mismatch. It runs locally and is meant to run in `test.yml`, so a stale
   `LINTERS.md` fails CI instead of merging.
@@ -117,28 +128,40 @@ it as its own documented case, not the read-only-mount default the lint tools fo
   chrysalis repo uses).
 - **Why it differs from chrysalis:** chrysalis compiles Flutter/Android natively, where emulating
   the non-host arch under QEMU is slow, so a native matrix earns its complexity. This image
-  **compiles nothing**: each platform's build just `COPY`s that platform's prebuilt binary out of
-  the upstream multi-arch image. The only step that executes in the target rootfs is a one-line
-  `useradd`, so the QEMU penalty is negligible and the simpler single job wins.
+  **compiles nothing**: each platform's build just lands that platform's prebuilt binary (a
+  `COPY --from` of the upstream image for Lane 1, a download-and-verify stage for Lane 2). The only
+  steps that execute in the target rootfs are the `container-structure-test` checksum-verify and a
+  one-line `useradd`, both trivial, so the QEMU penalty is negligible and the simpler single job wins.
 
 ---
 
-<a id="digest-pins-dependabot"></a>
-## Reproducibility: digest pins + Dependabot
+<a id="reproducibility-renovate"></a>
+## Reproducibility: digest pins + Renovate
 
 - **Digest pins:** every `FROM` is `tag@sha256:…`. The tag stays human-readable; the digest makes
-  the build reproducible. All four are multi-arch index digests, so the pin stays multi-arch.
-- **Dependabot, not Renovate.** This is the inverse of the chrysalis decision. chrysalis needs
-  Renovate because its key dependency (the Flutter SDK pin) is a bare string in a `.env` file that
-  no Dependabot ecosystem parses, so it needs Renovate's custom manager plus a bespoke datasource.
-  Here the only dependencies are **standard `FROM` image refs and GitHub Actions pins**, both of
-  which Dependabot parses natively. So the simpler, GitHub-native tool (no Mend app to authorize)
-  suffices: `.github/dependabot.yml` runs the `docker` + `github-actions` ecosystems weekly.
-- **Why the `docker` group is unfiltered.** The Actions group keeps the usual minor+patch-grouped /
-  majors-individual split. The `docker` group intentionally has **no `update-types` filter**: the
-  common update here is a digest-only bump (e.g. `debian:stable-slim` re-pushed under the same tag),
-  which carries no semver type, so an `update-types` filter would scatter each digest bump into its
-  own PR instead of grouping them.
+  the build reproducible. They're multi-arch index digests, so the pin stays multi-arch.
+- **The one binary that isn't an image:** `container-structure-test` has no usable multi-arch image,
+  so it's a downloaded release binary (see [#two-lane-architecture](#two-lane-architecture)). It's
+  pinned by an `ARG CST_VERSION` and verified at build against the *release's own* `checksums.txt`,
+  not a hand-frozen per-arch SHA in the Dockerfile. Why: that keeps a version bump a true one-liner
+  (bump the ARG, the build re-fetches and re-verifies) instead of a version-plus-two-hashes edit that
+  breaks the build until someone hand-updates the hashes. The integrity guarantee is "the binary
+  matches the checksum the release published for that immutable tag", the same model every install
+  script uses; combined with the version pin it's reproducible enough for a CI tool image.
+- **Renovate, not Dependabot.** This repo originally used Dependabot, on the logic that its only
+  dependencies were standard `FROM` refs and Actions pins, both of which Dependabot parses natively.
+  Adding `container-structure-test` broke that premise: a binary downloaded from a GitHub release is
+  **not** a `FROM` ref, and Dependabot has no generic mechanism to track it. Renovate does, via a
+  `custom.regex` manager keyed on the `# renovate:` marker above the ARG. Rather than run two bots,
+  the repo moved wholesale to Renovate, which also matches **chrysalis** (the main consumer already
+  runs Renovate, so it's one tool and one already-authorized Mend app across both repos). The config
+  `.github/renovate.jsonc` extends `config:best-practices` (digest-pins Docker, SHA-pins Actions) on
+  a weekly schedule, plus the one custom manager for the binary. Grouping is left to the preset's
+  defaults; the old Dependabot `update-types`-filter juggling for digest-only bumps is gone.
+- **Keeping the generated table honest across a bump:** a Renovate bump that changes a `FROM` tag or
+  the `CST_VERSION` ARG makes `LINTERS.md` stale. `renovate-regen.yml` regenerates it on the bump PR
+  and commits it back with the lahaluhem-ci-bot App token (an App-token push re-triggers CI, so the
+  `gen-linters.sh --check` drift gate clears on its own).
 
 ---
 
