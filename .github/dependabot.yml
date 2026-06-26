@@ -1,0 +1,30 @@
+# Dependabot version updates.
+# Reference: https://docs.github.com/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+#
+# Two ecosystems matter for this repo:
+#   docker          the base + tool images pinned in the Dockerfile (tag + digest)
+#   github-actions  the action pins in .github/workflows/
+#
+# Updates here are mostly digest bumps, so the whole docker ecosystem groups into one
+# weekly PR (a digest-only bump carries no semver type, so an update-types filter would
+# scatter it into separate PRs). For Actions we follow the usual split: minor + patch
+# grouped to cut noise, majors as individual PRs so they can be reviewed in isolation.
+version: 2
+
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

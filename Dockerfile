@@ -9,14 +9,16 @@
 #   Lane 2  package-manager linters (npm/pip/apt): a clearly separated install block.
 # Adding a linter touches only its lane (plus a row in LINTERS.md). Nothing else changes.
 
-# --- Lane 1: static-binary linters. Version is pinned at the FROM line. ---
-# Pinned by tag for now; switch to digest + Renovate when this repo is published.
-FROM hadolint/hadolint:v2.14.0-alpine AS hadolint
-FROM rhysd/actionlint:1.7.12          AS actionlint
-FROM koalaman/shellcheck:v0.11.0      AS shellcheck
+# --- Lane 1: static-binary linters. Version + digest pinned at the FROM line. ---
+# The tag is the readable version; the digest makes the build reproducible. Dependabot
+# (.github/dependabot.yml) bumps both. Each tag is a multi-arch index, so the digest
+# pin stays multi-arch.
+FROM hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
+FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 AS actionlint
+FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
 
 # --- Assembled image ---
-FROM debian:stable-slim
+FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
 LABEL org.opencontainers.image.title="ci-tools" \
       org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck." \
