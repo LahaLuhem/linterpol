@@ -4,9 +4,11 @@
 # Staged locally, not yet published. Built by ./scripts/build.sh as linterpol:local.
 #
 # Architecture: two lanes, chosen by how a tool is distributed.
-#   Lane 1  static-binary linters (Go/Rust/Haskell): one stage per tool, COPY the
-#           binary out. Cheap, tiny, natively multi-arch. Most modern linters fit here.
-#   Lane 2  package-manager linters (npm/pip/apt): a clearly separated install block.
+#   Lane 1  static-binary linters (Go/Rust/Haskell) with an official multi-arch image: one
+#           stage per tool, COPY the binary out. Cheap, tiny, natively multi-arch.
+#   Lane 2  tools with no usable multi-arch image: an apt/pip/npm install block, or (for a
+#           single prebuilt binary, e.g. container-structure-test) a download-and-verify
+#           stage we COPY the binary out of.
 # Adding a linter touches only its lane (plus a row in LINTERS.md). Nothing else changes.
 
 # --- Lane 1: static-binary linters. Version + digest pinned at the FROM line. ---
@@ -23,6 +25,26 @@ FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fe
 # linter: lints: shell scripts | repo: https://github.com/koalaman/shellcheck
 FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
 
+# --- Lane 2: tools with no usable multi-arch image. ---
+# container-structure-test ships no usable multi-arch image (gcr.io/gcp-runtimes is amd64-only
+# and last built 2023), so fetch the per-arch release binary in this throwaway stage, verify it
+# against the release's own checksums.txt, and COPY just the binary into the final image below.
+# The ARG is the single source of version truth: gen-linters.sh reads it for LINTERS.md and
+# Renovate bumps it (custom.regex manager, .github/renovate.jsonc). See
+# APPENDIX#two-lane-architecture.
+FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS cst-dl
+# linter: tool: container-structure-test | lane: 2 | lints: container image structure & metadata | repo: https://github.com/GoogleContainerTools/container-structure-test
+# renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test
+ARG CST_VERSION=v1.22.1
+ARG TARGETARCH
+ADD https://github.com/GoogleContainerTools/container-structure-test/releases/download/${CST_VERSION}/container-structure-test-linux-${TARGETARCH} /usr/local/bin/container-structure-test
+ADD https://github.com/GoogleContainerTools/container-structure-test/releases/download/${CST_VERSION}/checksums.txt /tmp/checksums.txt
+RUN set -eux; \
+    sed -n "s|^\([0-9a-f]\{64\}\)  container-structure-test-linux-${TARGETARCH}\$|\1  /usr/local/bin/container-structure-test|p" /tmp/checksums.txt > /tmp/cst.sha256; \
+    test -s /tmp/cst.sha256; \
+    sha256sum -c /tmp/cst.sha256; \
+    chmod 0755 /usr/local/bin/container-structure-test
+
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
@@ -35,8 +57,10 @@ COPY --from=hadolint   /bin/hadolint             /usr/local/bin/hadolint
 COPY --from=actionlint /usr/local/bin/actionlint /usr/local/bin/actionlint
 COPY --from=shellcheck /bin/shellcheck           /usr/local/bin/shellcheck
 
-# --- Lane 2: package-manager linters. Empty for now; obvious home when needed. ---
-# Example:
+# Lane 2 downloaded binary, verified in the cst-dl stage above (also statically linked).
+COPY --from=cst-dl /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
+
+# --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
 #   RUN apt-get update \
 #     && apt-get install -y --no-install-recommends <pkg> \
 #     && rm -rf /var/lib/apt/lists/*
@@ -48,4 +72,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && container-structure-test version"]

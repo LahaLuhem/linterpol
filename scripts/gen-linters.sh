@@ -55,28 +55,48 @@ gen_table() {
     }
     function lane_label(l) {
       if (l == "1") return "1 (static)"
-      if (l == "2") return "2 (pkg)"
+      if (l == "2") return "2"
       return l
     }
-    function emit(name, ver, lane, lints, repo, img) {
-      printf "| [%s](%s) | %s | %s | %s | `%s` |\n", name, repo, ver, lane_label(lane), lints, img
+    function emit(name, ver, lane, lints, repo, img,   imgcell) {
+      imgcell = (img == "") ? "n/a" : ("`" img "`")
+      printf "| [%s](%s) | %s | %s | %s | %s |\n", name, repo, ver, lane_label(lane), lints, imgcell
     }
     BEGIN {
       print "| Tool | Version | Lane | Lints | Upstream image |"
       print "| --- | --- | --- | --- | --- |"
       pending = 0
+      pending_arg = 0
     }
     /^[[:space:]]*#[[:space:]]*linter:/ {
       ann = $0
       sub(/^[[:space:]]*#[[:space:]]*linter:[[:space:]]*/, "", ann)
       if (field(ann, "tool") != "") {
         lane = field(ann, "lane"); if (lane == "") lane = "2"
-        emit(field(ann, "tool"), field(ann, "version"), lane, field(ann, "lints"), field(ann, "repo"), field(ann, "image"))
+        ver = field(ann, "version")
+        if (ver != "") {
+          emit(field(ann, "tool"), ver, lane, field(ann, "lints"), field(ann, "repo"), field(ann, "image"))
+        } else {
+          # No version in the annotation: it comes from the first `ARG <NAME>=<value>` line
+          # below (a downloaded-binary Lane-2 tool keeps the version in one ARG, so it stays
+          # the single source of truth and Renovate can bump it).
+          a_tool = field(ann, "tool"); a_lane = lane
+          a_lints = field(ann, "lints"); a_repo = field(ann, "repo"); a_img = field(ann, "image")
+          pending_arg = 1
+        }
         pending = 0
       } else {
         p_lints = field(ann, "lints"); p_repo = field(ann, "repo")
         pending = 1
       }
+      next
+    }
+    pending_arg && /^[[:space:]]*ARG[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=/ {
+      ver = $0
+      sub(/^[[:space:]]*ARG[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=/, "", ver)
+      ver = trim(ver); gsub(/^"|"$/, "", ver)
+      emit(a_tool, ver, a_lane, a_lints, a_repo, a_img)
+      pending_arg = 0
       next
     }
     pending && /^[[:space:]]*FROM[[:space:]]/ {
