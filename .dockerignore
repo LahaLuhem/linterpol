@@ -1,0 +1,5 @@
+# Nothing local is COPYed into the image (Lane 1 pulls binaries from upstream images),
+# so keep the build context small.
+.git
+*.md
+*.sh
