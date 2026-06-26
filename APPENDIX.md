@@ -6,7 +6,7 @@
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [Reproducibility: digest pins + Dependabot](#digest-pins-dependabot)
-- [Publishing is gated to `master` and manual dispatch](#publish-gating)
+- [Publishing is gated to `main` and manual dispatch](#publish-gating)
 
 <!-- TOC end -->
 
@@ -143,9 +143,9 @@ it as its own documented case, not the read-only-mount default the lint tools fo
 ---
 
 <a id="publish-gating"></a>
-## Publishing is gated to `master` and manual dispatch
+## Publishing is gated to `main` and manual dispatch
 
-- **Publish on `master` pushes and `workflow_dispatch`; pull requests build-validate without
+- **Publish on `main` pushes and `workflow_dispatch`; pull requests build-validate without
   pushing.** The consumer tag (`:latest`) is shared, so gating publishing keeps every branch from
   clobbering it, while PRs still validate both arches and a deliberate manual dispatch can
   publish/verify a branch.

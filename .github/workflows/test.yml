@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
 
 concurrency:
   group: test-${{ github.ref }}
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  # Always run on pull requests. On a push to master, skip if the pushed commit came from
+  # Always run on pull requests. On a push to main, skip if the pushed commit came from
   # a merged PR (already tested on the PR) but run for a direct push. Uses the commit/PR
   # association, so it's independent of the merge strategy (merge commit, squash, rebase).
   gate:

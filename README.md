@@ -1,59 +1,69 @@
 # Linterpol
 
-A small, multi-arch Docker image bundling the CLI linters I use across my repos, so a
-checkout can be linted with `docker run` instead of everyone installing the tools by hand.
+One small, multi-arch Docker image with the CLI linters I reuse across my repos. Lint any
+checkout with `docker run`, no installing tools by hand.
 
-> **Status:** staged locally, not published yet. Built and used as the local tag
-> `linterpol:local`; the published path will be `ghcr.io/lahaluhem/linterpol`.
+```bash
+docker pull ghcr.io/lahaluhem/linterpol:latest
+```
+
+Published to GHCR for both `linux/amd64` and `linux/arm64`, so it runs native on Apple
+Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
-hadolint, actionlint, shellcheck. Full list with versions: [LINTERS.md](./LINTERS.md).
-
-## Build
-
-```bash
-./scripts/build.sh          # builds linterpol:local for the host arch, then prints tool versions
-```
+hadolint, actionlint, shellcheck. Full list with versions in [LINTERS.md](./LINTERS.md).
 
 ## Use
 
-Lint a checkout by mounting it read-only at `/work`:
+Mount your checkout read-only at `/work` and point a tool at it:
 
 ```bash
-docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-docker run --rm -v "$PWD:/work:ro" linterpol:local shellcheck scripts/*.sh
-docker run --rm -v "$PWD:/work:ro" linterpol:local sh -c 'actionlint .github/workflows/*.yml'
+img=ghcr.io/lahaluhem/linterpol:latest
+docker run --rm -v "$PWD:/work:ro" "$img" hadolint Dockerfile
+docker run --rm -v "$PWD:/work:ro" "$img" shellcheck scripts/*.sh
+docker run --rm -v "$PWD:/work:ro" "$img" sh -c 'actionlint .github/workflows/*.yml'
 ```
 
-No args runs a self-check that prints all three tool versions.
+Run it with no args and it self-checks, printing all three tool versions.
 
-The image runs as a non-root user (`lint`), so it reads world-readable repo files (the
-normal case) and never writes to the mount.
+It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
+and never writes to your mount.
+
+## Build it yourself
+
+You don't need to, but if you want the image from source:
+
+```bash
+./scripts/build.sh          # builds linterpol:local for your host arch, then prints tool versions
+```
+
+Then swap `linterpol:local` in for the `ghcr.io/...` tag above.
 
 ## Architecture
 
-Two lanes, picked by how a tool is distributed:
+Two lanes, picked by how a tool ships:
 
-- **Lane 1, static binaries** (Go/Rust/Haskell): one build stage per tool, `COPY` the
-  binary into the final image. Tiny and natively multi-arch. Most modern linters fit here.
+- **Lane 1, static binaries** (Go/Rust/Haskell): one build stage per tool, then `COPY` the
+  binary into the final image. Tiny and natively multi-arch. Most modern linters land here.
 - **Lane 2, package-manager tools** (npm/pip/apt): a separate install block in the
   `Dockerfile`.
 
-Adding a linter touches only its lane, plus a row in [LINTERS.md](./LINTERS.md), which has
-the steps.
+Adding a linter touches just its lane, plus a row in [LINTERS.md](./LINTERS.md), where the
+steps live.
 
 <details>
 <summary>Why not super-linter or MegaLinter?</summary>
 
-Both are good, but amd64-only today (super-linter's arm64 PR is still a draft; MegaLinter's
-arm64 issue is open), and both are multi-GB. On Apple Silicon they run under emulation.
-This image is a handful of static binaries, so it's natively multi-arch and tiny.
-MegaLinter is also AGPL-3.0, which I'd rather not take on. The tradeoff is that I curate
-the linter list myself, which is the whole point here.
+Both are solid, but they're amd64-only today (super-linter's arm64 PR is still a draft,
+MegaLinter's arm64 issue is open) and both run multi-GB, so on Apple Silicon they fall back
+to emulation. This image is a handful of static binaries: natively multi-arch and tiny.
+MegaLinter is also AGPL-3.0, which I'd rather not take on. The catch is that I curate the
+linter list myself, but that's the whole point here.
 
 </details>
 
 ## Roadmap
 
-- First multi-arch publish to `ghcr.io/lahaluhem/linterpol` (the `build_and_push.yml` workflow is in place).
+First multi-arch publish is done. From here it's mostly keeping the linter set current and
+adding tools as I reach for them in other repos.

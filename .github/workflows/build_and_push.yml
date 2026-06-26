@@ -3,13 +3,13 @@ name: Build & Publish
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
   workflow_dispatch:
 
 # Single-job multi-arch build: the image only COPYs prebuilt per-arch binaries, so the
 # sole emulated step is a one-line useradd and a native-runner matrix isn't worth it
-# (see APPENDIX.md#single-job-buildx). Publish only on master pushes or a manual run;
+# (see APPENDIX.md#single-job-buildx). Publish only on main pushes or a manual run;
 # pull requests build-validate both arches without pushing. The :latest tag is shared, so
 # gating pushes keeps branches from clobbering it. Verify a branch without merging:
 #   gh workflow run build_and_push.yml --ref <branch>
@@ -31,7 +31,7 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/lahaluhem/linterpol
-      PUBLISH: ${{ github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch' }}
+      PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7

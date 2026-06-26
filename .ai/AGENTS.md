@@ -79,7 +79,7 @@ linterpol/
    the build reproducible). Don't hand-edit a digest except when adding/removing a tool;
    **Dependabot owns the bumps**. See
    [`APPENDIX.md#digest-pins-dependabot`](./APPENDIX.md#digest-pins-dependabot).
-6. **Publishing is outward-facing, so confirm-first**, and gated to `master` pushes + manual
+6. **Publishing is outward-facing, so confirm-first**, and gated to `main` pushes + manual
    `workflow_dispatch`; pull requests build-validate without pushing. See
    [`APPENDIX.md#publish-gating`](./APPENDIX.md#publish-gating).
 7. **Verify versions/digests against registries before pinning** — never from memory.
@@ -94,7 +94,7 @@ linterpol/
    / workflows / shell scripts with the image it just built, and runs `./scripts/gen-linters.sh --check`
    to fail if `LINTERS.md` has drifted from the Dockerfile.
 3. `build_and_push.yml` does the single-job multi-arch build and pushes to
-   `ghcr.io/lahaluhem/linterpol`, gated to `master` + dispatch; PRs build-validate both arches.
+   `ghcr.io/lahaluhem/linterpol`, gated to `main` + dispatch; PRs build-validate both arches.
 4. Dependabot bumps the `FROM` digests and action pins weekly.
 5. On a Dependabot PR that bumps a tool's `FROM` tag, `dependabot-regen.yml` regenerates
    `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s drift
@@ -131,7 +131,7 @@ standalone setup:
 - [x] **`LICENSE` added** (MIT, matching chrysalis).
 - [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
       `./scripts/gen-linters.sh --check`).
-- [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to master + dispatch.
+- [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to main + dispatch.
 - [ ] **First GHCR publish** (outward-facing, so confirm-first), then verify both arches via
       `docker manifest inspect`.
 - [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE`'s default from `linterpol:local` to the published
