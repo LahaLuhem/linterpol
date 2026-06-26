@@ -36,15 +36,16 @@ Bundled today: **hadolint** (Dockerfiles), **actionlint** (GitHub workflows), **
 - **Dependabot** — version tracking (`.github/dependabot.yml`): the `docker` ecosystem bumps the
   digest-pinned `FROM`s, `github-actions` bumps the workflow pins. Weekly, grouped. See
   [`APPENDIX.md#digest-pins-dependabot`](./APPENDIX.md#digest-pins-dependabot).
-- **Bash** — `build.sh` (local host-arch build + self-check).
+- **Bash** — `scripts/build.sh` (local build + self-check) and `scripts/gen-linters.sh`.
 
 ## Repo layout
 
 ```
 linterpol/
 ├── Dockerfile              two-lane combined tools image; FROMs pinned tag@digest
-├── build.sh                local host-arch build + self-check (tags linterpol:local)
-├── gen-linters.sh          regenerate the LINTERS.md table from the Dockerfile (+ --check)
+├── scripts/
+│   ├── build.sh            local host-arch build + self-check (tags linterpol:local)
+│   └── gen-linters.sh      regenerate the LINTERS.md table from the Dockerfile (+ --check)
 ├── .dockerignore
 ├── LINTERS.md              bundled-tools manifest; the table is generated from the Dockerfile
 ├── README.md               what it is, usage, architecture
@@ -64,7 +65,7 @@ linterpol/
    **Lane 1** (a `# linter:` annotation + `FROM <img>:<tag>@<digest> AS <name>` + `COPY --from=<name> …`);
    a tool that needs a runtime / package manager goes in **Lane 2** (the install block, with a
    self-contained `# linter:` annotation). Every bundled tool gets a row in [`LINTERS.md`](./LINTERS.md),
-   whose table is **generated** from the Dockerfile by `./gen-linters.sh` (run it after adding or
+   whose table is **generated** from the Dockerfile by `./scripts/gen-linters.sh` (run it after adding or
    removing a tool; never hand-edit the table). See
    [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture) and
    [`APPENDIX.md#generated-manifest`](./APPENDIX.md#generated-manifest).
@@ -84,10 +85,10 @@ linterpol/
 
 ## Build & test flow
 
-1. `./build.sh` builds `linterpol:local` for the host arch and self-checks (prints each tool's
+1. `./scripts/build.sh` builds `linterpol:local` for the host arch and self-checks (prints each tool's
    version).
 2. `test.yml` builds the image and **dogfoods** it: lints this repo's own Dockerfile
-   / workflows / shell scripts with the image it just built, and runs `./gen-linters.sh --check`
+   / workflows / shell scripts with the image it just built, and runs `./scripts/gen-linters.sh --check`
    to fail if `LINTERS.md` has drifted from the Dockerfile.
 3. *(planned)* `build_and_push.yml` does the single-job multi-arch build and pushes to
    `ghcr.io/lahaluhem/linterpol`, gated to `master` + dispatch.
@@ -95,9 +96,9 @@ linterpol/
 
 ## Testing
 
-- `./build.sh` runs locally (host arch), no CI round-trip.
+- `./scripts/build.sh` runs locally (host arch), no CI round-trip.
 - To add a tool: add it to its lane (with its `# linter:` annotation), build locally, confirm it
-  runs on this arch, and (Lane 1) confirm the upstream ships `arm64`. Run `./gen-linters.sh` to
+  runs on this arch, and (Lane 1) confirm the upstream ships `arm64`. Run `./scripts/gen-linters.sh` to
   refresh [`LINTERS.md`](./LINTERS.md).
 
 ## Code style (no separate CODESTYLE.md yet)
@@ -114,7 +115,7 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
 
 ## Status & remaining polish (as of 2026-06-26; prune as done)
 
-The image, `build.sh`, digest pins, and Dependabot are in place and verified. To finish the
+The image, `scripts/build.sh`, digest pins, and Dependabot are in place and verified. To finish the
 standalone setup:
 
 - [x] **Pick the final name** (`Linterpol`); renamed across the image `LABEL`s, `README`, the
@@ -122,7 +123,7 @@ standalone setup:
 - [ ] **Finalize `README.md`** (its Roadmap still says "Renovate" and lists digest-pinning as a
       TODO; both are now done/changed) and **add a `LICENSE`** (MIT, matching chrysalis).
 - [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
-      `./gen-linters.sh --check`).
+      `./scripts/gen-linters.sh --check`).
 - [ ] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to master + dispatch.
 - [ ] **First GHCR publish** (outward-facing, so confirm-first), then verify both arches via
       `docker manifest inspect`.

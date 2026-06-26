@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
 # Linterpol: a small, multi-arch combined image of CI lint tools.
-# Staged locally, not yet published. Built by ./build.sh as linterpol:local.
+# Staged locally, not yet published. Built by ./scripts/build.sh as linterpol:local.
 #
 # Architecture: two lanes, chosen by how a tool is distributed.
 #   Lane 1  static-binary linters (Go/Rust/Haskell): one stage per tool, COPY the
@@ -14,7 +14,7 @@
 # (.github/dependabot.yml) bumps both. Each tag is a multi-arch index, so the digest
 # pin stays multi-arch.
 #
-# The `# linter:` line above each FROM feeds LINTERS.md (run ./gen-linters.sh): version
+# The `# linter:` line above each FROM feeds LINTERS.md (run ./scripts/gen-linters.sh): version
 # and image come from the FROM, the `lints:` / `repo:` fields from the annotation.
 # linter: lints: Dockerfiles | repo: https://github.com/hadolint/hadolint
 FROM hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint

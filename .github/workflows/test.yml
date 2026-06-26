@@ -56,16 +56,16 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: LINTERS.md is generated from the Dockerfile
-        run: ./gen-linters.sh --check
+        run: ./scripts/gen-linters.sh --check
 
       - name: Build the image
-        run: ./build.sh
+        run: ./scripts/build.sh
 
       - name: Lint Dockerfile (hadolint)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint Dockerfile
 
       - name: Lint shell scripts (shellcheck)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck build.sh gen-linters.sh
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck scripts/*.sh
 
       - name: Lint workflows (actionlint)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" actionlint

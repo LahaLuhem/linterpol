@@ -87,7 +87,7 @@ it as its own documented case, not the read-only-mount default the lint tools fo
 <a id="generated-manifest"></a>
 ## `LINTERS.md` is generated from the Dockerfile
 
-- **Decision:** the tool table in `LINTERS.md` is produced by [`gen-linters.sh`](./gen-linters.sh),
+- **Decision:** the tool table in `LINTERS.md` is produced by [`gen-linters.sh`](./scripts/gen-linters.sh),
   not hand-maintained. The `Dockerfile` is the single source of truth.
 - **Why:** Dependabot bumps the `FROM` refs in the `Dockerfile`, but it can't touch a markdown
   table, so a hand-typed version list silently goes stale on every bump (worse than no table). With
@@ -99,7 +99,7 @@ it as its own documented case, not the read-only-mount default the lint tools fo
   one place to edit.
 - **The Version column is the raw tag** (e.g. `v2.14.0-alpine`): exactly what's in the `FROM`, with
   no flavor-stripping heuristic, so it tracks Dependabot literally.
-- **Drift guard:** `./gen-linters.sh --check` regenerates and diffs against the committed file,
+- **Drift guard:** `./scripts/gen-linters.sh --check` regenerates and diffs against the committed file,
   exiting non-zero on a mismatch. It runs locally and is meant to run in `test.yml`, so a stale
   `LINTERS.md` fails CI instead of merging.
 - **Only the table is generated.** It sits between `<!-- linters:start -->` / `<!-- linters:end -->`

@@ -44,7 +44,7 @@ confirm-first action.
 - **Lint workflow YAML with `actionlint`** before calling a workflow change done.
 - **Verify action/tool/image versions against their registries before pinning** — never from
   memory.
-- **The image dogfoods:** build it (`./build.sh`) and run it against this repo to validate a change
+- **The image dogfoods:** build it (`./scripts/build.sh`) and run it against this repo to validate a change
   to the tool set.
 - **Agent / Explore** for wide, open-ended searches.
 
@@ -59,7 +59,7 @@ one-line `useradd`. Report what you verified and what you did NOT.
 ## Definition of done
 
 - **`actionlint` clean** on any touched workflow.
-- **The image builds** for the affected arch(es) and `build.sh`'s self-check passes.
+- **The image builds** for the affected arch(es) and `scripts/build.sh`'s self-check passes.
 - **A publish is "done" only when `docker manifest inspect <ref>` shows BOTH `linux/amd64` and
   `linux/arm64`.** Never claim a multi-arch publish otherwise.
 - Report outcomes faithfully: if CI hasn't run or you couldn't verify, say so.
