@@ -36,8 +36,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      # arm64 is the only emulated platform (amd64 is native to the runner); the only step
-      # that executes in the arm64 rootfs is the Dockerfile's one-line useradd.
+      # arm64 is the only emulated platform (amd64 is native to the runner); the only steps that
+      # execute in the arm64 rootfs are the container-structure-test checksum-verify and the
+      # Dockerfile's one-line useradd, both trivial.
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
         with:

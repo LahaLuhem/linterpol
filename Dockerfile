@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 #
 # Linterpol: a small, multi-arch combined image of CI lint tools.
-# Staged locally, not yet published. Built by ./scripts/build.sh as linterpol:local.
+# Published to ghcr.io/lahaluhem/linterpol:latest (multi-arch) by build_and_push.yml; built
+# locally as linterpol:local by ./scripts/build.sh.
 #
 # Architecture: two lanes, chosen by how a tool is distributed.
 #   Lane 1  static-binary linters (Go/Rust/Haskell) with an official multi-arch image: one
@@ -12,8 +13,8 @@
 # Adding a linter touches only its lane (plus a row in LINTERS.md). Nothing else changes.
 
 # --- Lane 1: static-binary linters. Version + digest pinned at the FROM line. ---
-# The tag is the readable version; the digest makes the build reproducible. Dependabot
-# (.github/dependabot.yml) bumps both. Each tag is a multi-arch index, so the digest
+# The tag is the readable version; the digest makes the build reproducible. Renovate
+# (.github/renovate.jsonc) bumps both. Each tag is a multi-arch index, so the digest
 # pin stays multi-arch.
 #
 # The `# linter:` line above each FROM feeds LINTERS.md (run ./scripts/gen-linters.sh): version
