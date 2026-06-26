@@ -1,10 +1,10 @@
-# ci-tools (working name)
+# Linterpol
 
 A small, multi-arch Docker image bundling the CLI linters I use across my repos, so a
 checkout can be linted with `docker run` instead of everyone installing the tools by hand.
 
-> **Status:** staged locally, not published yet. Name, branding, and the published
-> registry path are still TODO. Built and used as the local tag `ci-tools:local`.
+> **Status:** staged locally, not published yet. Built and used as the local tag
+> `linterpol:local`; the published path will be `ghcr.io/lahaluhem/linterpol`.
 
 ## What's inside
 
@@ -13,7 +13,7 @@ hadolint, actionlint, shellcheck. Full list with versions: [LINTERS.md](./LINTER
 ## Build
 
 ```bash
-./build.sh          # builds ci-tools:local for the host arch, then prints tool versions
+./build.sh          # builds linterpol:local for the host arch, then prints tool versions
 ```
 
 ## Use
@@ -21,9 +21,9 @@ hadolint, actionlint, shellcheck. Full list with versions: [LINTERS.md](./LINTER
 Lint a checkout by mounting it read-only at `/work`:
 
 ```bash
-docker run --rm -v "$PWD:/work:ro" ci-tools:local hadolint Dockerfile
-docker run --rm -v "$PWD:/work:ro" ci-tools:local shellcheck scripts/*.sh
-docker run --rm -v "$PWD:/work:ro" ci-tools:local sh -c 'actionlint .github/workflows/*.yml'
+docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
+docker run --rm -v "$PWD:/work:ro" linterpol:local shellcheck scripts/*.sh
+docker run --rm -v "$PWD:/work:ro" linterpol:local sh -c 'actionlint .github/workflows/*.yml'
 ```
 
 No args runs a self-check that prints all three tool versions.
@@ -58,4 +58,3 @@ the linter list myself, which is the whole point here.
 
 - Publish multi-arch (`linux/amd64` + `linux/arm64`) to a registry.
 - Pin upstreams by digest and let Renovate bump them.
-- Pick a real name and write proper docs.

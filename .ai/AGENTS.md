@@ -1,16 +1,13 @@
-# AGENTS.md — `ci-tools` (working name)
+# AGENTS.md — `Linterpol`
 
 Tool-agnostic brief for any coding agent (Claude Code, Copilot, Cursor, Codex, ...) working
 in this repo. Claude-Code-specific guidance lives in [CLAUDE.md](./CLAUDE.md); design
 rationale and rejected paths live in [`APPENDIX.md`](./APPENDIX.md) (anchor-keyed). Read this
 first.
 
-> **Name is provisional.** `ci-tools` is a working title; the final name (and the published
-> GHCR path) is still TBD. See *Status & remaining polish* below.
-
 ## Project goal
 
-`ci-tools` builds and publishes one small, **multi-arch (`linux/amd64` + `linux/arm64`)**
+`Linterpol` builds and publishes one small, **multi-arch (`linux/amd64` + `linux/arm64`)**
 Docker image bundling the CI lint/check tools used across the author's repos, published to
 **GHCR under `ghcr.io/lahaluhem`**. The point: a checkout can be linted with `docker run`
 instead of every contributor installing the tools by hand.
@@ -44,9 +41,9 @@ Bundled today: **hadolint** (Dockerfiles), **actionlint** (GitHub workflows), **
 ## Repo layout
 
 ```
-ci-tools/
+linterpol/
 ├── Dockerfile              two-lane combined tools image; FROMs pinned tag@digest
-├── build.sh                local host-arch build + self-check (tags ci-tools:local)
+├── build.sh                local host-arch build + self-check (tags linterpol:local)
 ├── .dockerignore
 ├── LINTERS.md              the bundled-tools manifest (tool, version, lane)
 ├── README.md               what it is, usage, architecture (provisional; name TBD)
@@ -83,12 +80,12 @@ ci-tools/
 
 ## Build & test flow
 
-1. `./build.sh` builds `ci-tools:local` for the host arch and self-checks (prints each tool's
+1. `./build.sh` builds `linterpol:local` for the host arch and self-checks (prints each tool's
    version).
 2. *(planned)* `test.yml` builds the image and **dogfoods** it: lints this repo's own Dockerfile
    / workflows / `build.sh` with the image it just built.
 3. *(planned)* `build_and_push.yml` does the single-job multi-arch build and pushes to
-   `ghcr.io/lahaluhem/<name>`, gated to `master` + dispatch.
+   `ghcr.io/lahaluhem/linterpol`, gated to `master` + dispatch.
 4. Dependabot bumps the `FROM` digests and action pins weekly.
 
 ## Testing
@@ -113,13 +110,13 @@ The surface is small (one Dockerfile, one shell script, soon some workflow YAML)
 The image, `build.sh`, digest pins, and Dependabot are in place and verified. To finish the
 standalone setup:
 
-- [ ] **Pick the final name**; rename across the image `LABEL`s, `README`, the local tag, and
-      chrysalis's `CI_TOOLS_IMAGE` default.
+- [x] **Pick the final name** (`Linterpol`); renamed across the image `LABEL`s, `README`, the
+      local tag, and chrysalis's `LINTERPOL_IMAGE` default.
 - [ ] **Finalize `README.md`** (its Roadmap still says "Renovate" and lists digest-pinning as a
       TODO; both are now done/changed) and **add a `LICENSE`** (MIT, matching chrysalis).
 - [ ] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image).
 - [ ] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to master + dispatch.
 - [ ] **First GHCR publish** (outward-facing, so confirm-first), then verify both arches via
       `docker manifest inspect`.
-- [ ] Back in chrysalis: repoint `CI_TOOLS_IMAGE`'s default from `ci-tools:local` to the published
+- [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE`'s default from `linterpol:local` to the published
       ref.

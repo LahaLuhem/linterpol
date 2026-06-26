@@ -1,7 +1,7 @@
 <!-- TOC start -->
 
 - [`AGENTS.md` and `CLAUDE.md` are symlinks into `.ai/`](#ai-files-symlinked)
-- [Why this repo exists: one multi-arch tools image](#why-ci-tools)
+- [Why this repo exists: one multi-arch tools image](#why-linterpol)
 - [The two-lane architecture](#two-lane-architecture)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [Reproducibility: digest pins + Dependabot](#digest-pins-dependabot)
@@ -36,7 +36,7 @@ sections here by anchor (e.g. `APPENDIX.md#two-lane-architecture`).
 
 ---
 
-<a id="why-ci-tools"></a>
+<a id="why-linterpol"></a>
 ## Why this repo exists: one multi-arch tools image
 
 The problem: a test script that shells out to `hadolint` / `actionlint` / `shellcheck` forces

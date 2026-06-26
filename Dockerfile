@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# ci-tools: a small, multi-arch combined image of CI lint tools.
-# Staged locally, not yet published. Built by ./build.sh as ci-tools:local.
+# Linterpol: a small, multi-arch combined image of CI lint tools.
+# Staged locally, not yet published. Built by ./build.sh as linterpol:local.
 #
 # Architecture: two lanes, chosen by how a tool is distributed.
 #   Lane 1  static-binary linters (Go/Rust/Haskell): one stage per tool, COPY the
@@ -20,7 +20,7 @@ FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
-LABEL org.opencontainers.image.title="ci-tools" \
+LABEL org.opencontainers.image.title="Linterpol" \
       org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck." \
       org.opencontainers.image.licenses="MIT"
 
@@ -41,5 +41,5 @@ USER lint
 WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
-#   docker run --rm -v "$PWD:/work:ro" ci-tools:local hadolint Dockerfile
+#   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
 CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version"]

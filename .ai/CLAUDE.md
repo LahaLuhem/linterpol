@@ -1,4 +1,4 @@
-# CLAUDE.md — `ci-tools` (working name)
+# CLAUDE.md — `Linterpol`
 
 Claude-Code-specific guidance. Project facts, stack, repo layout, and hard rules live in
 [AGENTS.md](./AGENTS.md); design rationale lives in [`APPENDIX.md`](./APPENDIX.md).
@@ -6,10 +6,10 @@ Claude-Code-specific guidance. Project facts, stack, repo layout, and hard rules
 
 ## Role & context
 
-You're assisting with **ci-tools**: a repo whose job is to **build and publish** one small,
+You're assisting with **Linterpol**: a repo whose job is to **build and publish** one small,
 multi-arch (`amd64` + `arm64`) Docker image bundling CI lint/check tools, to
 `ghcr.io/lahaluhem`, for reuse across the author's repos. *How or where the image is consumed is
-out of scope.* The repo is still being bootstrapped (final name TBD, not yet published). Treat
+out of scope.* The repo is still being bootstrapped (not yet published). Treat
 the user as technical and direct. Published images are outward-facing, so publishing is a
 confirm-first action.
 
