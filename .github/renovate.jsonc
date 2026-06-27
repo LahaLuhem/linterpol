@@ -9,21 +9,22 @@
   "extends": ["config:best-practices", "schedule:weekly"],
 
   // Managers in play: dockerfile (the FROM tag@digest pins), github-actions (the workflow
-  // action SHAs), custom.regex (the container-structure-test release binary, marked below).
+  // action SHAs), custom.regex (the Lane-2 downloaded-binary versions, marked below).
   "enabledManagers": ["dockerfile", "github-actions", "custom.regex"],
 
   "customManagers": [
     {
-      // container-structure-test has no usable multi-arch image, so it's a downloaded binary
-      // pinned by an ARG in the Dockerfile (see that file's Lane-2 stage). Renovate tracks the
-      // release tag here; renovate-regen.yml then refreshes LINTERS.md on the bump PR.
-      "description": "Track the container-structure-test release binary pinned in the Dockerfile.",
+      // Lane-2 downloaded binaries (container-structure-test, swiftlint) have no usable multi-arch
+      // image, so each is pinned by an `ARG <NAME>_VERSION` in the Dockerfile (see that file's
+      // Lane-2 stages). Renovate tracks each release tag here; regen-linters.yml then refreshes
+      // LINTERS.md on the bump PR.
+      "description": "Track Lane-2 downloaded-binary versions (ARG <NAME>_VERSION) pinned in the Dockerfile.",
       "customType": "regex",
       "managerFilePatterns": ["/^Dockerfile$/"],
-      // Marker line `# renovate: datasource=… depName=…` then `ARG CST_VERSION=<vX.Y.Z>`;
+      // Marker line `# renovate: datasource=… depName=…` then `ARG <NAME>_VERSION=<value>`;
       // datasource + depName come from the marker, currentValue is the version.
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG CST_VERSION=(?<currentValue>\\S+)"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG \\w+_VERSION=(?<currentValue>\\S+)"
       ]
     }
   ]

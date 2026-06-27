@@ -35,7 +35,7 @@ structure). Full list: [`LINTERS.md`](./LINTERS.md).
   downloaded-binary / package-manager tools (Lane 2). See [`LINTERS.md`](./LINTERS.md) and
   [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture).
 - **GitHub Actions** — `.github/workflows/`: `test.yml` self-test, `build_and_push.yml` publish,
-  `renovate-regen.yml` manifest regen.
+  `regen-linters.yml` LINTERS.md regen (any Dockerfile change).
 - **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
 - **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
   and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
@@ -62,7 +62,7 @@ linterpol/
 │   └── workflows/
 │       ├── test.yml             self-test / dogfood (structure test + lint + LINTERS.md drift check)
 │       ├── build_and_push.yml   single-job multi-arch publish (gated)
-│       └── renovate-regen.yml   regenerate LINTERS.md on Renovate PRs
+│       └── regen-linters.yml    regenerate LINTERS.md on any Dockerfile change
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
@@ -76,8 +76,9 @@ linterpol/
    a tool with no usable official image goes in **Lane 2** (a package-manager install block, or a
    prebuilt binary downloaded and checksum-verified in a stage then `COPY`d in), with a
    self-contained `# linter:` annotation. Every bundled tool gets a row in [`LINTERS.md`](./LINTERS.md),
-   whose table is **generated** from the Dockerfile by `./scripts/gen-linters.sh` (run it after adding or
-   removing a tool; never hand-edit the table). See
+   whose table is **generated** from the Dockerfile; CI (`regen-linters.yml`) regenerates and commits it
+   on any Dockerfile change, so don't hand-edit or commit it (run `./scripts/gen-linters.sh` locally only
+   to preview). See
    [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture) and
    [`APPENDIX.md#generated-manifest`](./APPENDIX.md#generated-manifest).
 4. **Multi-arch (`amd64` + `arm64`).** Before adding a Lane-1 tool, confirm its upstream image
@@ -107,16 +108,16 @@ linterpol/
 3. `build_and_push.yml` does the single-job multi-arch build and pushes to
    `ghcr.io/lahaluhem/linterpol`, gated to `main` + dispatch; PRs build-validate both arches.
 4. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
-5. On a Renovate PR that bumps a tool's `FROM` tag or the `CST_VERSION` ARG, `renovate-regen.yml`
+5. On any Dockerfile change (a Renovate or manual PR, or a push to `main`), `regen-linters.yml`
    regenerates `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s
-   drift check clears automatically.
+   drift check clears automatically. (Don't commit `LINTERS.md` by hand; CI owns it.)
 
 ## Testing
 
 - `./scripts/build.sh` runs locally (host arch), no CI round-trip.
 - To add a tool: add it to its lane (with its `# linter:` annotation), build locally, confirm it
-  runs on this arch, and (Lane 1) confirm the upstream ships `arm64`. Run `./scripts/gen-linters.sh` to
-  refresh [`LINTERS.md`](./LINTERS.md).
+  runs on this arch, and (Lane 1) confirm the upstream ships `arm64`. Leave [`LINTERS.md`](./LINTERS.md)
+  to CI (`regen-linters.yml`); run `./scripts/gen-linters.sh` locally only to preview the table.
 
 ## Code style (no separate CODESTYLE.md yet)
 
@@ -144,7 +145,7 @@ are in place and verified. To finish the standalone setup:
 - [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to main + dispatch.
 - [x] **`container-structure-test` added** (Lane-2 downloaded binary; both arches verified, in
       `LINTERS.md`).
-- [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `renovate-regen.yml`; tracks the
+- [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `regen-linters.yml`; tracks the
       `FROM`s, action SHAs, and the c-s-t version).
 - [x] **First GHCR publish** done and verified: `ghcr.io/lahaluhem/linterpol:latest` is a multi-arch
       manifest (linux/amd64 + linux/arm64), and chrysalis pins a digest of it.
