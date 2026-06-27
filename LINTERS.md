@@ -15,6 +15,7 @@ The canonical list of what's in the image, one row per tool.
 | [shellcheck](https://github.com/koalaman/shellcheck) | v0.11.0 | 1 (static) | shell scripts | `koalaman/shellcheck:v0.11.0` |
 | [ruff](https://github.com/astral-sh/ruff) | 0.15.20 | 1 (static) | Python (lint + format) | `ghcr.io/astral-sh/ruff:0.15.20` |
 | [container-structure-test](https://github.com/GoogleContainerTools/container-structure-test) | v1.22.1 | 2 | container image structure & metadata | n/a |
+| [swiftlint](https://github.com/realm/SwiftLint) | 0.65.0 | 2 | Swift | n/a |
 <!-- linters:end -->
 
 > actionlint also runs shellcheck on `run:` blocks on its own, since shellcheck is on
