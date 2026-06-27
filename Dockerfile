@@ -48,11 +48,36 @@ RUN set -eux; \
     sha256sum -c /tmp/cst.sha256; \
     chmod 0755 /usr/local/bin/container-structure-test
 
+# SwiftLint ships no lightweight image (ghcr.io/realm/swiftlint carries the full Swift runtime,
+# ~185 MB), but its Linux release zip bundles a fully static `swiftlint-static` that runs on bare
+# debian, so it's a Lane-2 download like c-s-t above: fetch the per-arch zip, extract just that
+# binary, COPY it into the final image. No upstream checksums.txt covers these zips, so integrity
+# rests on the pinned version fetched over HTTPS from the immutable release tag plus a zip CRC check
+# (unzip -t); that keeps a Renovate version bump a one-liner. The static build has no SourceKit, so a
+# few SourceKit-only rules are skipped with a warning while the SwiftSyntax majority run. See
+# APPENDIX#two-lane-architecture.
+FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS swiftlint-dl
+# linter: tool: swiftlint | lane: 2 | lints: Swift | repo: https://github.com/realm/SwiftLint
+# renovate: datasource=github-releases depName=realm/SwiftLint
+ARG SWIFTLINT_VERSION=0.65.0
+ARG TARGETARCH
+ADD https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_${TARGETARCH}.zip /tmp/swiftlint.zip
+# unzip lives only in this throwaway stage; a Debian point-release version pin is brittle and
+# Renovate can't track an apt pin, so DL3008 is intentionally ignored here.
+# hadolint ignore=DL3008
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends unzip; \
+    rm -rf /var/lib/apt/lists/*; \
+    unzip -t /tmp/swiftlint.zip; \
+    unzip -p /tmp/swiftlint.zip swiftlint-static > /usr/local/bin/swiftlint; \
+    chmod 0755 /usr/local/bin/swiftlint
+
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
 LABEL org.opencontainers.image.title="Linterpol" \
-      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff." \
+      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, swiftlint, container-structure-test." \
       org.opencontainers.image.licenses="MIT"
 
 # Lane 1 binaries. All statically linked, so they run on any base.
@@ -61,8 +86,9 @@ COPY --from=actionlint /usr/local/bin/actionlint /usr/local/bin/actionlint
 COPY --from=shellcheck /bin/shellcheck           /usr/local/bin/shellcheck
 COPY --from=ruff       /ruff                      /usr/local/bin/ruff
 
-# Lane 2 downloaded binary, verified in the cst-dl stage above (also statically linked).
-COPY --from=cst-dl /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
+# Lane 2 downloaded binaries, extracted/verified in the *-dl stages above (also statically linked).
+COPY --from=cst-dl      /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
+COPY --from=swiftlint-dl /usr/local/bin/swiftlint               /usr/local/bin/swiftlint
 
 # --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
 #   RUN apt-get update \
@@ -76,4 +102,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && container-structure-test version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && swiftlint version && container-structure-test version"]

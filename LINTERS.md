@@ -3,8 +3,9 @@
 The canonical list of what's in the image, one row per tool.
 
 > **Generated.** The table below is produced from the `Dockerfile` by
-> [`gen-linters.sh`](./scripts/gen-linters.sh). Don't hand-edit it: change the `Dockerfile` (the
-> `FROM` line and its `# linter:` annotation), then run `./scripts/gen-linters.sh`.
+> [`gen-linters.sh`](./scripts/gen-linters.sh), which CI runs on any `Dockerfile` change
+> (`regen-linters.yml`) and commits back. Don't hand-edit or commit it: change the `Dockerfile`
+> (the `FROM` line and its `# linter:` annotation); run `./scripts/gen-linters.sh` locally to preview.
 
 <!-- linters:start -->
 | Tool | Version | Lane | Lints | Upstream image |
@@ -26,7 +27,7 @@ The canonical list of what's in the image, one row per tool.
 1. Add the stage with its annotation: a `# linter: lints: <what> | repo: <url>` line, then
    `FROM <official-image>:<tag>@<digest> AS <name>`.
 2. Add a copy: `COPY --from=<name> <path-in-image> /usr/local/bin/<name>`.
-3. Run `./scripts/gen-linters.sh` to refresh the table above.
+3. That's it. CI regenerates the table above on the `Dockerfile` change; run `./scripts/gen-linters.sh` locally to preview.
 
 Confirm the upstream image ships both `linux/arm64` and `linux/amd64` first, so the
 combined image stays multi-arch:
@@ -42,5 +43,5 @@ self-contained annotation that carries its own name and version:
 # linter: tool: <name> | version: <x.y.z> | lane: 2 | lints: <what> | repo: <url>
 ```
 
-then run `./scripts/gen-linters.sh`. If Lane 2 ever grows to many heterogeneous tools, that's the
+CI then regenerates the table (run `./scripts/gen-linters.sh` locally to preview). If Lane 2 ever grows to many heterogeneous tools, that's the
 cue to switch its runner to [pre-commit](https://pre-commit.com).

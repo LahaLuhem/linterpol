@@ -54,9 +54,11 @@ Why not an off-the-shelf aggregator (researched 2026-06):
 - Both run under emulation on Apple Silicon, and both are "huge + configurable from a fixed menu",
   not "lean + extensible".
 
-Rolling our own is a few static binaries (`COPY --from` the official images): ~220 MB, natively
-multi-arch, MIT, and you curate exactly the tool set. The trade-off (you maintain the list) is the
-point. See [#two-lane-architecture](#two-lane-architecture).
+Rolling our own is a handful of mostly-static binaries (`COPY --from` the official images, or a
+download-and-verify for the ones that ship no usable image): ~350 MB with the current set
+(SwiftLint's static build is ~80 MB of that), natively multi-arch, MIT, and you curate exactly the
+tool set. The trade-off (you maintain the list) is the point. See
+[#two-lane-architecture](#two-lane-architecture).
 
 ---
 
@@ -89,6 +91,21 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   a Docker *image*. So it needs either the host Docker socket mounted (Docker-out-of-Docker) or an
   image tarball via `--driver tar`. The repo's own self-test uses the tar driver (no socket needed);
   wiring the socket path for real consumers is their job, not this image's.
+
+**SwiftLint** is the second Lane-2 downloaded binary, with two wrinkles of its own:
+
+- **No checksums.txt.** Unlike c-s-t, SwiftLint publishes no checksum file for its Linux zips, so
+  there's nothing in the release to verify against at build. Integrity rests on the pinned
+  `SWIFTLINT_VERSION` fetched over HTTPS from the immutable release tag, plus an `unzip -t` CRC check
+  of the archive. That keeps a Renovate bump a one-liner (bump the ARG, rebuild and re-verify); a
+  hand-frozen per-arch SHA was rejected for the same reason c-s-t avoids one (a version-plus-hashes
+  edit breaks the build on every bump until someone recomputes the hashes).
+- **Static build, no SourceKit.** The release zip ships both a dynamic `swiftlint` (which needs the
+  Swift runtime, so it only runs on the ~185 MB official image) and a fully static `swiftlint-static`.
+  We take the static one so it drops onto `debian:stable-slim` like any other Lane-2 binary, at the
+  cost of the handful of rules that need SourceKit (skipped at runtime with a warning); the
+  SwiftSyntax-based majority run. Shipping the full runtime to recover those rules would roughly
+  double the image, not worth it for a CI lint image.
 
 ---
 
@@ -159,7 +176,7 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   a weekly schedule, plus the one custom manager for the binary. Grouping is left to the preset's
   defaults; the old Dependabot `update-types`-filter juggling for digest-only bumps is gone.
 - **Keeping the generated table honest across a bump:** a Renovate bump that changes a `FROM` tag or
-  the `CST_VERSION` ARG makes `LINTERS.md` stale. `renovate-regen.yml` regenerates it on the bump PR
+  the `CST_VERSION` ARG makes `LINTERS.md` stale. `regen-linters.yml` regenerates it on the bump PR
   and commits it back with the lahaluhem-ci-bot App token (an App-token push re-triggers CI, so the
   `gen-linters.sh --check` drift gate clears on its own).
 
