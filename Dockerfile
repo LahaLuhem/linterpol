@@ -25,6 +25,8 @@ FROM hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6c
 FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 AS actionlint
 # linter: lints: shell scripts | repo: https://github.com/koalaman/shellcheck
 FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
+# linter: lints: Python (lint + format) | repo: https://github.com/astral-sh/ruff
+FROM ghcr.io/astral-sh/ruff:0.15.20@sha256:03cc33c3f7f31ba53040fb1f1b8744a03a777033650f543d689d1ed98298f14b AS ruff
 
 # --- Lane 2: tools with no usable multi-arch image. ---
 # container-structure-test ships no usable multi-arch image (gcr.io/gcp-runtimes is amd64-only
@@ -50,13 +52,14 @@ RUN set -eux; \
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
 LABEL org.opencontainers.image.title="Linterpol" \
-      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck." \
+      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff." \
       org.opencontainers.image.licenses="MIT"
 
-# Lane 1 binaries. All three are statically linked, so they run on any base.
+# Lane 1 binaries. All statically linked, so they run on any base.
 COPY --from=hadolint   /bin/hadolint             /usr/local/bin/hadolint
 COPY --from=actionlint /usr/local/bin/actionlint /usr/local/bin/actionlint
 COPY --from=shellcheck /bin/shellcheck           /usr/local/bin/shellcheck
+COPY --from=ruff       /ruff                      /usr/local/bin/ruff
 
 # Lane 2 downloaded binary, verified in the cst-dl stage above (also statically linked).
 COPY --from=cst-dl /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
@@ -73,4 +76,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && container-structure-test version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && container-structure-test version"]

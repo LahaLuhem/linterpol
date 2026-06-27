@@ -24,6 +24,10 @@ fileExistenceTests:
     path: /usr/local/bin/shellcheck
     shouldExist: true
     isExecutableBy: any
+  - name: ruff on PATH
+    path: /usr/local/bin/ruff
+    shouldExist: true
+    isExecutableBy: any
   - name: container-structure-test on PATH
     path: /usr/local/bin/container-structure-test
     shouldExist: true

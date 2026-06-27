@@ -21,7 +21,7 @@ Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
-hadolint, actionlint, shellcheck, and container-structure-test. Full list with versions in
+hadolint, actionlint, shellcheck, ruff, and container-structure-test. Full list with versions in
 [LINTERS.md](./LINTERS.md).
 
 ## Use
@@ -33,9 +33,10 @@ img=ghcr.io/lahaluhem/linterpol:latest
 docker run --rm -v "$PWD:/work:ro" "$img" hadolint Dockerfile
 docker run --rm -v "$PWD:/work:ro" "$img" shellcheck scripts/*.sh
 docker run --rm -v "$PWD:/work:ro" "$img" sh -c 'actionlint .github/workflows/*.yml'
+docker run --rm -v "$PWD:/work:ro" "$img" ruff check .
 ```
 
-Run it with no args and it self-checks, printing all four tool versions.
+Run it with no args and it self-checks, printing all five tool versions.
 
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
 and never writes to your mount.

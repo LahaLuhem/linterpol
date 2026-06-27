@@ -62,7 +62,7 @@ jobs:
         run: ./scripts/build.sh
 
       # Structure-test the freshly built image with its own container-structure-test (tar driver,
-      # so no Docker socket needed): asserts the four tools are on PATH and the image's contract
+      # so no Docker socket needed): asserts the five tools are on PATH and the image's contract
       # (non-root lint user, /work workdir, no entrypoint). See tests/image-structure.yaml.
       - name: Structure-test the image (container-structure-test)
         run: |

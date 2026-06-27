@@ -13,8 +13,8 @@ Docker image bundling the CI lint/check tools used across the author's repos, pu
 instead of every contributor installing the tools by hand.
 
 Bundled today: **hadolint** (Dockerfiles), **actionlint** (GitHub workflows), **shellcheck**
-(shell), **container-structure-test** (container image structure). Full list:
-[`LINTERS.md`](./LINTERS.md).
+(shell), **ruff** (Python lint + format), **container-structure-test** (container image
+structure). Full list: [`LINTERS.md`](./LINTERS.md).
 
 ## Scope — what this repo is and is NOT
 
