@@ -42,9 +42,9 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # Build the image, prove LINTERS.md is in sync with the Dockerfile, then dogfood it:
-  # lint this repo's own sources with the image we just built (tools come from the image,
-  # not the runner). actionlint runs shellcheck on the workflows' run: blocks too.
+  # Build the image, prove LINTERS.md is in sync with the Dockerfile, then dogfood it: structure-test
+  # the image with its own container-structure-test, and lint this repo's own sources with the tools
+  # from the image (not the runner). actionlint runs shellcheck on the workflows' run: blocks too.
   selftest:
     needs: gate
     if: needs.gate.outputs.run == 'true'
@@ -60,6 +60,19 @@ jobs:
 
       - name: Build the image
         run: ./scripts/build.sh
+
+      # Structure-test the freshly built image with its own container-structure-test (tar driver,
+      # so no Docker socket needed): asserts the four tools are on PATH and the image's contract
+      # (non-root lint user, /work workdir, no entrypoint). See tests/image-structure.yaml.
+      - name: Structure-test the image (container-structure-test)
+        run: |
+          docker save "$LINTERPOL_IMAGE" -o "$RUNNER_TEMP/image.tar"
+          chmod 0644 "$RUNNER_TEMP/image.tar"
+          docker run --rm \
+            -v "$RUNNER_TEMP/image.tar:/img/image.tar:ro" \
+            -v "$PWD:/work:ro" \
+            "$LINTERPOL_IMAGE" \
+            container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure.yaml
 
       - name: Lint Dockerfile (hadolint)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint Dockerfile

@@ -1,6 +1,6 @@
-# Nothing local is COPYed into the image (Lane 1 pulls binaries from upstream images),
-# so keep the build context small.
-.git
-*.md
-*.sh
-scripts/
+# The build COPYs nothing from the context: Lane 1 tools arrive via `COPY --from` upstream
+# stages, and the Lane 2 binary (container-structure-test) is fetched with `ADD <url>` in its
+# build stage. So the context needs to carry nothing at all: ignore everything. Docker still
+# reads the Dockerfile and this .dockerignore regardless. If a tool ever needs a local file
+# COPYed in, allow it back with a `!path` negation below.
+*
