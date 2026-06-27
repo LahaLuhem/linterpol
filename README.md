@@ -1,5 +1,14 @@
 # Linterpol
 
+[![Build & Publish](https://github.com/LahaLuhem/linterpol/actions/workflows/build_and_push.yml/badge.svg?branch=main)](https://github.com/LahaLuhem/linterpol/actions/workflows/build_and_push.yml)
+[![Test](https://github.com/LahaLuhem/linterpol/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/LahaLuhem/linterpol/actions/workflows/test.yml)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LahaLuhem/linterpol/pulls)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/issues)
+[![GitHub closed issues](https://img.shields.io/github/issues-closed/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/issues?q=is%3Aissue+is%3Aclosed)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/pulls)
+[![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/pulls?q=is%3Apr+is%3Aclosed)
+
 One small, multi-arch Docker image with the CLI linters I reuse across my repos. Lint any
 checkout with `docker run`, no installing tools by hand.
 

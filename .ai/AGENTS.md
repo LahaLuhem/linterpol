@@ -51,6 +51,8 @@ linterpol/
 ├── scripts/
 │   ├── build.sh            local host-arch build + self-check (tags linterpol:local)
 │   └── gen-linters.sh      regenerate the LINTERS.md table from the Dockerfile (+ --check)
+├── tests/
+│   └── image-structure.yaml  container-structure-test spec (PATH + image-contract checks)
 ├── .dockerignore
 ├── LINTERS.md              bundled-tools manifest; the table is generated from the Dockerfile
 ├── README.md               what it is, usage, architecture
@@ -58,7 +60,7 @@ linterpol/
 ├── .github/
 │   ├── renovate.jsonc      config:best-practices + a custom manager for c-s-t; weekly
 │   └── workflows/
-│       ├── test.yml             self-test / dogfood (lint + LINTERS.md drift check)
+│       ├── test.yml             self-test / dogfood (structure test + lint + LINTERS.md drift check)
 │       ├── build_and_push.yml   single-job multi-arch publish (gated)
 │       └── renovate-regen.yml   regenerate LINTERS.md on Renovate PRs
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
@@ -98,9 +100,10 @@ linterpol/
 
 1. `./scripts/build.sh` builds `linterpol:local` for the host arch and self-checks (prints each tool's
    version).
-2. `test.yml` builds the image and **dogfoods** it: lints this repo's own Dockerfile
-   / workflows / shell scripts with the image it just built, and runs `./scripts/gen-linters.sh --check`
-   to fail if `LINTERS.md` has drifted from the Dockerfile.
+2. `test.yml` builds the image and **dogfoods** it: structure-tests the image with its own
+   `container-structure-test` (tar driver, no socket) against `tests/image-structure.yaml`, lints
+   this repo's own Dockerfile / workflows / shell scripts with the image it just built, and runs
+   `./scripts/gen-linters.sh --check` to fail if `LINTERS.md` has drifted from the Dockerfile.
 3. `build_and_push.yml` does the single-job multi-arch build and pushes to
    `ghcr.io/lahaluhem/linterpol`, gated to `main` + dispatch; PRs build-validate both arches.
 4. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
