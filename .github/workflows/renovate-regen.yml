@@ -1,26 +1,34 @@
 name: Regenerate LINTERS.md
 
-# When Renovate bumps a tool's FROM tag (or the container-structure-test version ARG), the
-# generated table in LINTERS.md goes stale and test.yml's `gen-linters.sh --check` fails the PR.
-# This regenerates the table and commits it back to the Renovate PR using the lahaluhem-ci-bot
-# App token. An App-token push (unlike a GITHUB_TOKEN push) re-triggers workflows, so test.yml
-# re-runs and the drift check clears on its own.
+# When the Dockerfile's tool set changes, the generated table in LINTERS.md goes stale and
+# test.yml's `gen-linters.sh --check` fails. This regenerates the table and commits it back
+# with the lahaluhem-ci-bot App token. An App-token push (unlike a GITHUB_TOKEN push)
+# re-triggers workflows, so test.yml re-runs and the drift check clears on its own.
 #
-# Plain pull_request (not pull_request_target): Renovate isn't special-cased the way Dependabot
-# is, so a pull_request run on Renovate's same-repo PR can read the App secrets and push back.
-# That avoids the pull_request_target footgun (running PR-head code with base-repo secrets). We
-# still gate to renovate[bot]'s own PRs (which only edit the Dockerfile, per the paths filter);
-# the branch lives in this repo (the Mend app pushes it), so a third party can't inject code.
+# Two entry points, both filtered to Dockerfile edits:
+#   - pull_request: Renovate's bumps and manual tool-add PRs. The fix is committed back to the
+#     PR branch. Gated to same-repo branches: a fork can't push a branch into this repo, and
+#     pull_request hands forks no secrets anyway, so PR-head code can't read the App key. A
+#     same-repo branch already implies write access (a trusted collaborator).
+#   - push to main: direct commits (this repo is developed on main). The fix is committed to main.
+#
+# No loop: the regen commit only touches LINTERS.md, so the `paths: [Dockerfile]` filter doesn't
+# re-trigger this workflow; the `git diff --quiet` guard is a second backstop.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - Dockerfile
+  push:
+    branches:
+      - main
+    paths:
+      - Dockerfile
 
-# Don't pile up regen runs on a PR that gets several pushes in a row.
+# Don't pile up regen runs when a branch gets several pushes in a row.
 concurrency:
-  group: linters-regen-${{ github.event.pull_request.number }}
+  group: linters-regen-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 # The push is done with the App token; GITHUB_TOKEN itself needs nothing beyond read.
@@ -29,7 +37,8 @@ permissions:
 
 jobs:
   regen:
-    if: github.event.pull_request.user.login == 'renovate[bot]'
+    # PRs: same-repo branches only (forks excluded). Pushes to main are inherently in-repo.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Mint lahaluhem-ci-bot token
@@ -39,10 +48,10 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Checkout the PR branch
+      - name: Checkout the target branch
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.head_ref || github.ref_name }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Regenerate LINTERS.md from the Dockerfile
@@ -51,7 +60,7 @@ jobs:
       - name: Commit back if the table changed
         env:
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          TARGET_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           if git diff --quiet -- LINTERS.md; then
             echo "LINTERS.md already in sync with the Dockerfile; nothing to commit."
@@ -62,5 +71,5 @@ jobs:
           git config user.name  "${APP_SLUG}[bot]"
           git config user.email "287673903+${APP_SLUG}[bot]@users.noreply.github.com"
           git add LINTERS.md
-          git commit -m 'chore: regenerate LINTERS.md for dependency bump'
-          git push origin "HEAD:${HEAD_REF}"
+          git commit -m 'chore: regenerate LINTERS.md'
+          git push origin "HEAD:${TARGET_REF}"
