@@ -3,6 +3,7 @@
 - [`AGENTS.md` and `CLAUDE.md` are symlinks into `.ai/`](#ai-files-symlinked)
 - [Why this repo exists: one multi-arch tools image](#why-linterpol)
 - [The two-lane architecture](#two-lane-architecture)
+- [The JVM variant: a sibling image, not a Lane 3](#jvm-variant)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [The build script: shell with variant args, not bake (yet)](#build-script)
@@ -107,6 +108,51 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   cost of the handful of rules that need SourceKit (skipped at runtime with a warning); the
   SwiftSyntax-based majority run. Shipping the full runtime to recover those rules would roughly
   double the image, not worth it for a CI lint image.
+
+---
+
+<a id="jvm-variant"></a>
+## The JVM variant: a sibling image, not a Lane 3
+
+- **Decision:** JVM-stack linters ship in a separate image, `linterpol-jvm`, built from its own
+  `images/jvm/Dockerfile`. It is a **sibling** of the lean image, not a superset: it carries a JRE
+  plus JVM-language linters (ktlint today) and nothing from the lean image. `linterpol:latest` stays
+  JVM-free.
+- **Why a separate image.** ktlint (and detekt later) are JVM tools with no native binary, so they
+  need a JRE. The Temurin JRE base is ~340 MB, about the size of the entire lean image, so folding it
+  into `linterpol` would roughly double a tag that consumers pin precisely because it's lean and that
+  they don't use for JVM linting. A separate tag isolates that cost to the repos that opt in.
+- **Why a sibling, not a superset.** A superset (lean tools plus JVM tools in one image) was the
+  alternative. The sibling keeps the JVM image to just what JVM linting needs and keeps the two
+  Dockerfiles independent (each its own base, its own `FROM` pins, its own structure spec and
+  `LINTERS.md` section), which suits the per-stack layout. The trade-off: a repo that lints both its
+  Dockerfiles/workflows and its Kotlin runs two images. That's accepted; mixed repos are rare and the
+  invocation contract is identical across images.
+- **It is NOT a new lane.** The two lanes describe *how a tool is distributed* (Lane 1 = static
+  binary `COPY`d from an official image; Lane 2 = downloaded artifact or package install). That axis is
+  orthogonal to *which image* a tool lands in. ktlint is a plain Lane-2 download (a self-executing fat
+  JAR), the same shape as swiftlint and container-structure-test in the lean image; it just lands in
+  the jvm image because it needs the JRE. The new axis is the **image variant / base runtime**, not a
+  third lane. A future static JVM tool would be Lane 1 *in* the jvm image; a future heavy stack (e.g.
+  `linterpol-dotnet`) is another sibling at `images/dotnet/Dockerfile`.
+- **Base + verification.** The base is `eclipse-temurin:21-jre`, digest-pinned and multi-arch like any
+  `FROM` (Renovate bumps it); 21 is the conservative current LTS. ktlint ships no `checksums.txt`, and
+  its `#!/bin/sh` self-executing JAR makes `unzip -t` only warn (so neither the
+  container-structure-test checksum model nor the swiftlint CRC model fits), so integrity is "run it on
+  the JRE and assert the pinned version". Because the jar is architecture-independent JVM bytecode, the
+  fetch and verify happen once on the build host's arch (`--platform=$BUILDPLATFORM`, no QEMU) and the
+  one jar is `COPY`d into the per-arch final image; the only emulated step in a cross-arch build stays
+  the one-line `useradd`, same as the lean image.
+- **Entrypoint reset.** `eclipse-temurin` ships an `ENTRYPOINT` (`/__cacert_entrypoint.sh`, a runtime
+  CA-cert importer). The jvm Dockerfile clears it with `ENTRYPOINT []` so the image matches the lean
+  contract (no entrypoint; `docker run <img> <tool> <args>` runs the tool directly). ktlint lints local
+  files, so the CA-cert import isn't needed; `tests/image-structure-jvm.yaml` asserts the empty
+  entrypoint.
+- **Deferred / skipped (from the investigation in issue #4).** detekt is deferred: it's also a JVM CLI
+  but degrades standalone (its type-resolution rules want a compiled classpath), so it can be added to
+  this image later if wanted. Android Lint is skipped (needs the Android SDK + Gradle + a project build
+  model, not portable), as is Konsist (a JUnit/kotlin-test library whose rules run via a test runner,
+  not against mounted source).
 
 ---
 
