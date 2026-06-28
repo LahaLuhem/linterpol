@@ -10,15 +10,18 @@
 [![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/pulls?q=is%3Apr+is%3Aclosed)
 
 Small, multi-arch Docker images with the CLI linters I reuse across my repos. Lint any
-checkout with `docker run`, no installing tools by hand. Two images:
+checkout with `docker run`, no installing tools by hand. Three images:
 
 - **`linterpol`** (lean): static-binary linters for the common stack (hadolint, shellcheck, ...).
 - **`linterpol-jvm`**: a JRE plus JVM-language linters (ktlint). Kept separate so the lean image
   stays JVM-free for the repos that pin it and don't lint JVM languages.
+- **`linterpol-dotnet`**: the .NET runtime plus C# linters (CSharpier). Separate for the same
+  reason, so the lean image stays .NET-free.
 
 ```bash
 docker pull ghcr.io/lahaluhem/linterpol:latest
 docker pull ghcr.io/lahaluhem/linterpol-jvm:latest
+docker pull ghcr.io/lahaluhem/linterpol-dotnet:latest
 ```
 
 Both are published to GHCR for `linux/amd64` and `linux/arm64`, so they run native on Apple
@@ -28,6 +31,7 @@ Silicon and on the usual x86 CI runners.
 
 - **`linterpol`**: hadolint, actionlint, shellcheck, ruff, swiftlint, and container-structure-test.
 - **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
+- **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
 Full list with versions in [LINTERS.md](./LINTERS.md).
 
@@ -52,8 +56,16 @@ jvm=ghcr.io/lahaluhem/linterpol-jvm:latest
 docker run --rm -v "$PWD:/work:ro" "$jvm" ktlint
 ```
 
-Run either image with no args and it self-checks, printing its tools' versions (the lean image's
-six; the jvm image's `java` + `ktlint`).
+Same contract again for the dotnet image. CSharpier is a formatter, so in CI use its read-only
+`check` mode: it reports unformatted files and exits non-zero, and never writes to your mount.
+
+```bash
+dotnet=ghcr.io/lahaluhem/linterpol-dotnet:latest
+docker run --rm -v "$PWD:/work:ro" "$dotnet" csharpier check .
+```
+
+Run any image with no args and it self-checks, printing its tools' versions (the lean image's six;
+the jvm image's `java` + `ktlint`; the dotnet image's `dotnet` + `csharpier`).
 
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
 and never writes to your mount.
@@ -77,17 +89,18 @@ Then swap `linterpol:local` (or `linterpol-jvm:local`) in for the `ghcr.io/...` 
 
 ## Architecture
 
-Each image is one `images/<variant>/Dockerfile`. The lean `linterpol` and the `linterpol-jvm`
-sibling are independent: the JVM image carries a JRE that the lean image's consumers shouldn't have
-to pull. A new heavy-runtime stack (say `linterpol-dotnet`) would be another sibling. See
-[APPENDIX.md#jvm-variant](./APPENDIX.md#jvm-variant).
+Each image is one `images/<variant>/Dockerfile`. The lean `linterpol`, the `linterpol-jvm` sibling,
+and the `linterpol-dotnet` sibling are independent: the JVM and .NET images each carry a runtime the
+lean image's consumers shouldn't have to pull. Another heavy-runtime stack would be one more sibling.
+See [APPENDIX.md#jvm-variant](./APPENDIX.md#jvm-variant) and
+[APPENDIX.md#dotnet-variant](./APPENDIX.md#dotnet-variant).
 
 Within an image, tools come in two lanes, picked by how a tool ships:
 
 - **Lane 1, static binaries** (Go/Rust/Haskell): one build stage per tool, then `COPY` the
   binary into the final image. Tiny and natively multi-arch. Most modern linters land here.
-- **Lane 2, tools with no usable static image**: an npm/pip/apt install block, or a single
-  prebuilt binary downloaded and verified (swiftlint, container-structure-test, ktlint).
+- **Lane 2, tools with no usable static image**: an npm/pip/apt/NuGet install block, or a single
+  prebuilt binary downloaded and verified (swiftlint, container-structure-test, ktlint, csharpier).
 
 Adding a linter touches just its lane, plus a row in [LINTERS.md](./LINTERS.md), where the
 steps live.
@@ -105,7 +118,7 @@ linter list myself, but that's the whole point here.
 
 ## Roadmap
 
-The lean image publishes multi-arch. The `linterpol-jvm` sibling (ktlint) is the newest piece;
-detekt and more JVM-language linters can follow in that image. Beyond that it's keeping the tool set
-current (Renovate handles the bumps) and adding tools, or new stack siblings, as I reach for them in
-other repos.
+The lean and `linterpol-jvm` images publish multi-arch; `linterpol-dotnet` (CSharpier) is the newest
+sibling. detekt and more JVM-language linters can still follow in the jvm image. Beyond that it's
+keeping the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as
+I reach for them in other repos.

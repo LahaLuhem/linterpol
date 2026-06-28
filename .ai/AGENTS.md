@@ -12,13 +12,16 @@ images bundling the CI lint/check tools used across the author's repos, publishe
 `ghcr.io/lahaluhem`**. The point: a checkout can be linted with `docker run` instead of every
 contributor installing the tools by hand.
 
-Two images today, one per `images/<variant>/Dockerfile`:
+Three images today, one per `images/<variant>/Dockerfile`:
 
 - **`linterpol`** (lean): **hadolint** (Dockerfiles), **actionlint** (GitHub workflows),
   **shellcheck** (shell), **ruff** (Python lint + format), **swiftlint** (Swift),
   **container-structure-test** (container image structure).
 - **`linterpol-jvm`** (sibling): a JRE plus **ktlint** (Kotlin). Separate so the lean image stays
   JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
+- **`linterpol-dotnet`** (sibling): the .NET runtime plus **CSharpier** (C#). Separate so the lean
+  image stays .NET-free; file-level only (no SDK or build tooling). See
+  [`APPENDIX.md#dotnet-variant`](./APPENDIX.md#dotnet-variant).
 
 Full list: [`LINTERS.md`](./LINTERS.md).
 
@@ -37,9 +40,11 @@ Full list: [`LINTERS.md`](./LINTERS.md).
   image only lands prebuilt per-arch binaries (a `COPY --from` for Lane 1, a verified download for
   Lane 2), so there is no native compilation and the QEMU penalty is negligible. See
   [`APPENDIX.md#single-job-buildx`](./APPENDIX.md#single-job-buildx).
-- **Per-stack image variants** — one image per `images/<variant>/Dockerfile`: the lean `linterpol`
-  and the `linterpol-jvm` sibling (a JRE + JVM linters). Independent images, picked by base runtime.
-  See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
+- **Per-stack image variants** — one image per `images/<variant>/Dockerfile`: the lean `linterpol`,
+  the `linterpol-jvm` sibling (a JRE + JVM linters), and the `linterpol-dotnet` sibling (a .NET
+  runtime + CSharpier). Independent images, picked by base runtime. See
+  [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant) and
+  [`APPENDIX.md#dotnet-variant`](./APPENDIX.md#dotnet-variant).
 - **Two-lane architecture** (within an image) — static-binary tools with an official image (Lane 1)
   vs downloaded-binary / package-manager tools (Lane 2), orthogonal to the variant axis. See
   [`LINTERS.md`](./LINTERS.md) and [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture).
@@ -48,7 +53,7 @@ Full list: [`LINTERS.md`](./LINTERS.md).
 - **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
 - **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
   and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
-  downloaded-binary versions (`container-structure-test`, `swiftlint`, `ktlint`). Weekly. See
+  `ARG`-pinned tool versions (`container-structure-test`, `swiftlint`, `ktlint`, `csharpier`). Weekly. See
   [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
 - **Bash** — `scripts/build.sh` (local build + self-check) and `scripts/gen-linters.sh`.
 
@@ -58,13 +63,15 @@ Full list: [`LINTERS.md`](./LINTERS.md).
 linterpol/
 ├── images/                 one Dockerfile per image variant
 │   ├── lean/Dockerfile     lean tools image (linterpol:latest); two lanes, FROMs pinned tag@digest
-│   └── jvm/Dockerfile      JVM sibling (linterpol-jvm:latest); Temurin JRE + ktlint
+│   ├── jvm/Dockerfile      JVM sibling (linterpol-jvm:latest); Temurin JRE + ktlint
+│   └── dotnet/Dockerfile   .NET sibling (linterpol-dotnet:latest); .NET runtime + CSharpier
 ├── scripts/
 │   ├── build.sh            host-arch build + self-check of any/all variants (linterpol[-<v>]:local)
 │   └── gen-linters.sh      regenerate the LINTERS.md tables from the Dockerfiles (+ --check)
 ├── tests/
-│   ├── image-structure.yaml      container-structure-test spec for the lean image
-│   └── image-structure-jvm.yaml  ... and for the jvm image
+│   ├── image-structure.yaml         container-structure-test spec for the lean image
+│   ├── image-structure-jvm.yaml     ... and for the jvm image
+│   └── image-structure-dotnet.yaml  ... and for the dotnet image
 ├── .dockerignore
 ├── LINTERS.md              bundled-tools manifest; the table is generated from the Dockerfile
 ├── README.md               what it is, usage, architecture
@@ -84,8 +91,8 @@ linterpol/
    is portable and out of scope.
 2. **Registry is `ghcr.io/lahaluhem`** (lowercase).
 3. **One image per stack; two lanes within each; one tool = one unit of change.** Each image is an
-   `images/<variant>/Dockerfile`: the lean `linterpol` and the `linterpol-jvm` sibling. A new
-   heavy-runtime stack is a new sibling (`images/<variant>/Dockerfile`, published as
+   `images/<variant>/Dockerfile`: the lean `linterpol`, the `linterpol-jvm` sibling, and the
+   `linterpol-dotnet` sibling. A new heavy-runtime stack is a new sibling (`images/<variant>/Dockerfile`, published as
    `linterpol-<variant>`, with its own `tests/image-structure-<variant>.yaml` and a `linters:<variant>`
    section in `LINTERS.md`), not tools bolted onto the lean image. Within an image, a static binary with
    an official image goes in **Lane 1** (a `# linter:` annotation + `FROM <img>:<tag>@<digest> AS <name>`
@@ -118,13 +125,13 @@ linterpol/
 
 1. `./scripts/build.sh [variant...]` builds the named variants (or all of `images/*/` if none) for the
    host arch and self-checks each. See [`APPENDIX.md#build-script`](./APPENDIX.md#build-script).
-2. `test.yml` builds both images and **dogfoods** them: structure-tests the lean image with its own
-   `container-structure-test` and the jvm image via the lean image's (tar driver, no socket) against the
-   `tests/image-structure*.yaml` specs, lints this repo's Dockerfiles / workflows / shell scripts with
-   the lean image, and runs `./scripts/gen-linters.sh --check` to fail if `LINTERS.md` has drifted from
-   the Dockerfiles.
-3. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol` and `linterpol-jvm`, gated
-   to `main` + dispatch; PRs build-validate both arches.
+2. `test.yml` builds all images and **dogfoods** them: structure-tests the lean image with its own
+   `container-structure-test` and the jvm + dotnet siblings via the lean image's (tar driver, no socket)
+   against the `tests/image-structure*.yaml` specs, lints this repo's Dockerfiles / workflows / shell
+   scripts with the lean image, and runs `./scripts/gen-linters.sh --check` to fail if `LINTERS.md` has
+   drifted from the Dockerfiles.
+3. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol`, `linterpol-jvm`, and
+   `linterpol-dotnet`, gated to `main` + dispatch; PRs build-validate both arches.
 4. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
 5. On any Dockerfile change (a Renovate or manual PR, or a push to `main`), `regen-linters.yml`
    regenerates `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s
@@ -149,7 +156,7 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
   tracks them); keep `run:` blocks `actionlint`/shellcheck-clean.
 - **Bash:** `set -euo pipefail`; quote expansions.
 
-## Status & remaining polish (as of 2026-06-26; prune as done)
+## Status & remaining polish (as of 2026-06-28; prune as done)
 
 The image (now including container-structure-test), `scripts/build.sh`, digest pins, and Renovate
 are in place and verified. To finish the standalone setup:
@@ -171,3 +178,7 @@ are in place and verified. To finish the standalone setup:
       both arches via `docker manifest inspect`.
 - [ ] Back in chrysalis: bump the pinned `linterpol` digest to the c-s-t-carrying image (Renovate
       handles this once it's republished).
+- [ ] **First `linterpol-dotnet` publish** (outward-facing, so confirm-first; creates a NEW GHCR
+      package, private by default). The matrix leg, structure spec, `LINTERS.md` section, Renovate
+      coverage, and docs are in, and the image builds + self-checks on both arches locally, but it has
+      NOT been published yet.

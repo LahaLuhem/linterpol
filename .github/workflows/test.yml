@@ -42,9 +42,9 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # Build both images, prove LINTERS.md is in sync with the Dockerfiles, then dogfood them:
-  # structure-test the lean image with its own container-structure-test and the jvm image via the
-  # lean image's (the jvm sibling carries no c-s-t), and lint this repo's own sources with the lean
+  # Build all images, prove LINTERS.md is in sync with the Dockerfiles, then dogfood them:
+  # structure-test the lean image with its own container-structure-test and the jvm + dotnet siblings
+  # via the lean image's (the siblings carry no c-s-t), and lint this repo's own sources with the lean
   # image's tools (not the runner). actionlint runs shellcheck on the workflows' run: blocks too.
   selftest:
     needs: gate
@@ -53,6 +53,7 @@ jobs:
     env:
       LINTERPOL_IMAGE: linterpol:local
       JVM_IMAGE: linterpol-jvm:local
+      DOTNET_IMAGE: linterpol-dotnet:local
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -60,7 +61,7 @@ jobs:
       - name: LINTERS.md is generated from the Dockerfiles
         run: ./scripts/gen-linters.sh --check
 
-      - name: Build the images (lean + jvm)
+      - name: Build the images (lean + jvm + dotnet)
         run: ./scripts/build.sh
 
       # Structure-test the freshly built lean image with its own container-structure-test (tar
@@ -88,8 +89,20 @@ jobs:
             "$LINTERPOL_IMAGE" \
             container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure-jvm.yaml
 
+      # The dotnet sibling likewise carries no container-structure-test, so run the lean image's
+      # against its tarball. Asserts csharpier + the dotnet host on PATH and the same contract.
+      - name: Structure-test the dotnet image (via the lean image's container-structure-test)
+        run: |
+          docker save "$DOTNET_IMAGE" -o "$RUNNER_TEMP/dotnet.tar"
+          chmod 0644 "$RUNNER_TEMP/dotnet.tar"
+          docker run --rm \
+            -v "$RUNNER_TEMP/dotnet.tar:/img/image.tar:ro" \
+            -v "$PWD:/work:ro" \
+            "$LINTERPOL_IMAGE" \
+            container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure-dotnet.yaml
+
       - name: Lint Dockerfiles (hadolint)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint images/lean/Dockerfile images/jvm/Dockerfile
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint images/lean/Dockerfile images/jvm/Dockerfile images/dotnet/Dockerfile
 
       - name: Lint shell scripts (shellcheck)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck scripts/*.sh
