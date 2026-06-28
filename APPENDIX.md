@@ -4,6 +4,7 @@
 - [Why this repo exists: one multi-arch tools image](#why-linterpol)
 - [The two-lane architecture](#two-lane-architecture)
 - [The JVM variant: a sibling image, not a Lane 3](#jvm-variant)
+- [The .NET variant: CSharpier only, no build tooling](#dotnet-variant)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [The build script: shell with variant args, not bake (yet)](#build-script)
@@ -153,6 +154,59 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   this image later if wanted. Android Lint is skipped (needs the Android SDK + Gradle + a project build
   model, not portable), as is Konsist (a JUnit/kotlin-test library whose rules run via a test runner,
   not against mounted source).
+
+---
+
+<a id="dotnet-variant"></a>
+## The .NET variant: CSharpier only, no build tooling
+
+- **Decision:** .NET-stack linting ships in a separate image, `linterpol-dotnet`, built from its own
+  `images/dotnet/Dockerfile`. Like the jvm image it is a **sibling**, not a superset: it carries the
+  .NET runtime plus C# linters (CSharpier today) and nothing from the lean image. `linterpol:latest`
+  stays .NET-free.
+- **Why a separate image.** CSharpier ships only as a NuGet `dotnet tool` (no native binary), so it
+  needs the .NET runtime. That runtime base is heavy relative to the lean image, and lean's consumers
+  don't lint C#, so the same logic as the jvm image applies: isolate the runtime's cost to the tag
+  that opts in. A repo that lints both its Dockerfiles/workflows and its C# runs both images.
+- **CSharpier only, and why not the rest.** CSharpier is the one mainstream C# tool that runs
+  *file-level*: it parses and reprints source in memory and reports the diff, with no project build.
+  It's MIT, so it bakes into a public image cleanly. The others were deliberately skipped:
+  - **Roslynator CLI, `dotnet format`, StyleCop.Analyzers, SonarAnalyzer.CSharp** are Roslyn
+    analyzers or MSBuild tasks. They need the *compilation* (a restored solution and the SDK), which
+    is exactly the contract this image declines to take on (next bullet).
+  - **jb / ReSharper Command Line Tools** are skipped on license grounds: the ReSharper CLT license
+    forbids redistribution without JetBrains' written consent, so it can't be baked into a public
+    image (same spirit as the AGPL/MegaLinter rejection in [#why-linterpol](#why-linterpol)). It also
+    wants a solution plus the SDK, so it fails the file-level contract anyway.
+- **File-level, read-only contract.** The image lints a read-only mount like every other linterpol
+  image. There is **no** SDK in the final image, no NuGet restore at runtime, and no `.sln`-loading
+  tools. `csharpier check <path>` is the read-only mode (it reports unformatted files and exits
+  non-zero; `format` is the one that writes, and we don't use it). Taking on a build/restore contract
+  would mean shipping the SDK and a restore step, a different and much heavier kind of image, out of
+  scope by design.
+- **It is NOT a new lane.** As with the jvm image, CSharpier is a plain Lane-2 install (a NuGet
+  `dotnet tool`), the same axis as swiftlint / ktlint / container-structure-test. The new axis is the
+  **image variant / base runtime** (a .NET runtime), not a third lane.
+- **Base + the multi-arch gotcha.** The base is `mcr.microsoft.com/dotnet/runtime:10.0`, digest-pinned
+  and multi-arch like any `FROM` (Renovate bumps it); 10 is the current LTS (Nov 2025). We use the
+  standard tag, not a `-chiseled` one: chiseled has no shell or `useradd`, which the non-root-`lint`
+  plus `sh -c` self-check contract needs. A `dotnet tool`'s launcher *shim* is arch-specific, but the
+  tool's payload DLLs are architecture-independent IL (they live under `tools/<tfm>/any/`). So the
+  ktlint "fetch once on `$BUILDPLATFORM`" trick still applies, just via the SDK: an SDK stage on
+  `--platform=$BUILDPLATFORM` runs `dotnet tool install` (no QEMU), the `net10.0` payload is copied
+  into the per-arch final image, and a tiny `csharpier` wrapper on PATH runs the DLL through the
+  `dotnet` host (`exec dotnet …/CSharpier.dll "$@"`) instead of the arch-specific shim. The only
+  emulated step in a cross-arch build stays the one-line `useradd`, same as lean and jvm. The
+  `net10.0` payload targets `Microsoft.NETCore.App 10.0.0`, an exact match for the base, and its
+  `runtimeconfig.json` sets `rollForward: Major` as a safety net.
+- **Verification.** CSharpier ships no `checksums.txt`, but `dotnet tool install` validates the
+  package signature, and running the DLL (`csharpier --version`) asserts the pinned version, so
+  integrity and version are proven in one step, the same "run it and assert" model as ktlint. The
+  `ARG CSHARPIER_VERSION` is the single source of version truth: `gen-linters.sh` reads it for
+  `LINTERS.md` and Renovate bumps it (the `custom.regex` manager, `datasource=nuget depName=CSharpier`).
+- **Entrypoint.** Unlike the Temurin base the jvm image has to reset, the .NET runtime base sets no
+  `ENTRYPOINT`, so there's nothing to clear; `tests/image-structure-dotnet.yaml` still asserts the
+  empty entrypoint so the contract is locked either way.
 
 ---
 
