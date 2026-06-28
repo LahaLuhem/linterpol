@@ -20,7 +20,7 @@
       // LINTERS.md on the bump PR.
       "description": "Track Lane-2 downloaded-binary versions (ARG <NAME>_VERSION) pinned in the Dockerfile.",
       "customType": "regex",
-      "managerFilePatterns": ["/^Dockerfile$/"],
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
       // Marker line `# renovate: datasource=… depName=…` then `ARG <NAME>_VERSION=<value>`;
       // datasource + depName come from the marker, currentValue is the version.
       "matchStrings": [

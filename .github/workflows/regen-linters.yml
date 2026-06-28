@@ -12,19 +12,19 @@ name: Regenerate LINTERS.md
 #     same-repo branch already implies write access (a trusted collaborator).
 #   - push to main: direct commits (this repo is developed on main). The fix is committed to main.
 #
-# No loop: the regen commit only touches LINTERS.md, so the `paths: [Dockerfile]` filter doesn't
+# No loop: the regen commit only touches LINTERS.md, so the `paths: [images/*/Dockerfile]` filter doesn't
 # re-trigger this workflow; the `git diff --quiet` guard is a second backstop.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - Dockerfile
+      - images/*/Dockerfile
   push:
     branches:
       - main
     paths:
-      - Dockerfile
+      - images/*/Dockerfile
 
 # Don't pile up regen runs when a branch gets several pushes in a row.
 concurrency:

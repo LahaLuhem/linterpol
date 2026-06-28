@@ -47,7 +47,8 @@ structure). Full list: [`LINTERS.md`](./LINTERS.md).
 
 ```
 linterpol/
-├── Dockerfile              two-lane combined tools image; FROMs pinned tag@digest
+├── images/
+│   └── lean/Dockerfile     lean tools image (linterpol:latest); two lanes, FROMs pinned tag@digest
 ├── scripts/
 │   ├── build.sh            local host-arch build + self-check (tags linterpol:local)
 │   └── gen-linters.sh      regenerate the LINTERS.md table from the Dockerfile (+ --check)
