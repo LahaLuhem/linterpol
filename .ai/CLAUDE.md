@@ -80,7 +80,7 @@ what you did NOT.
 - **Publishing the image** — anything that pushes to `ghcr.io/lahaluhem`, including a
   `workflow_dispatch` publish on a branch — is **confirm-first** (outward-facing).
 - **Any git mutation** — see *VCS* above.
-- **Hand-editing pinned digests in the `Dockerfile`** (or the `container-structure-test`
-  `CST_VERSION` ARG) — that's Renovate's job, except when you're adding or removing a tool.
+- **Hand-editing pinned digests in the `images/*/Dockerfile`s** (or a downloaded-binary
+  `ARG <NAME>_VERSION` pin) — that's Renovate's job, except when you're adding or removing a tool.
 - **Destructive Docker on shared state** (`docker system prune`, removing the user's images/volumes)
   — ask first.
