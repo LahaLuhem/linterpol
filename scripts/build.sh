@@ -13,7 +13,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 image="${LINTERPOL_IMAGE:-linterpol:local}"
 
 echo "building $image (host arch)"
-docker buildx build --load -t "$image" .
+docker buildx build --load -t "$image" -f images/lean/Dockerfile .
 
 echo "self-check:"
 docker run --rm "$image"

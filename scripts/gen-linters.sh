@@ -25,7 +25,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
-dockerfile='Dockerfile'
+dockerfile='images/lean/Dockerfile'
 manifest='LINTERS.md'
 start='<!-- linters:start -->'
 end='<!-- linters:end -->'

@@ -75,7 +75,7 @@ jobs:
             container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure.yaml
 
       - name: Lint Dockerfile (hadolint)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint Dockerfile
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint images/lean/Dockerfile
 
       - name: Lint shell scripts (shellcheck)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck scripts/*.sh
