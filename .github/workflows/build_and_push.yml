@@ -7,7 +7,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Matrix of images (lean + jvm), each a single-job multi-arch build: the images only land prebuilt
+# Matrix of images (lean + jvm + dotnet), each a single-job multi-arch build: the images only land prebuilt
 # per-arch binaries (Lane-1 COPY --from upstreams, Lane-2 downloads done on the build arch), so the
 # sole emulated step per image is a one-line useradd and a native-runner matrix isn't worth it
 # (see APPENDIX.md#single-job-buildx). Publish only on main pushes or a manual run; pull requests
@@ -41,6 +41,9 @@ jobs:
           - variant: jvm
             image: ghcr.io/lahaluhem/linterpol-jvm
             dockerfile: images/jvm/Dockerfile
+          - variant: dotnet
+            image: ghcr.io/lahaluhem/linterpol-dotnet
+            dockerfile: images/dotnet/Dockerfile
     env:
       PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     steps:
@@ -49,7 +52,8 @@ jobs:
 
       # arm64 is the only emulated platform (amd64 is native to the runner); the steps that run in
       # the arm64 rootfs are trivial (each image's one-line useradd, plus lean's Lane-2
-      # download-verifies; the jvm image fetches ktlint on the native build arch).
+      # download-verifies; the jvm image fetches ktlint and the dotnet image installs CSharpier on
+      # the native build arch).
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
         with:
