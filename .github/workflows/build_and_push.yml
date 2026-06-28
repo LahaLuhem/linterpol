@@ -7,15 +7,17 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Single-job multi-arch build: the image only COPYs prebuilt per-arch binaries, so the
-# sole emulated step is a one-line useradd and a native-runner matrix isn't worth it
-# (see APPENDIX.md#single-job-buildx). Publish only on main pushes or a manual run;
-# pull requests build-validate both arches without pushing. The :latest tag is shared, so
-# gating pushes keeps branches from clobbering it. Verify a branch without merging:
+# Matrix of images (lean + jvm), each a single-job multi-arch build: the images only land prebuilt
+# per-arch binaries (Lane-1 COPY --from upstreams, Lane-2 downloads done on the build arch), so the
+# sole emulated step per image is a one-line useradd and a native-runner matrix isn't worth it
+# (see APPENDIX.md#single-job-buildx). Publish only on main pushes or a manual run; pull requests
+# build-validate both arches without pushing. The :latest tags are shared, so gating pushes keeps
+# branches from clobbering them. Verify a branch without merging:
 #   gh workflow run build_and_push.yml --ref <branch>
 
-# Serialize publishes per ref so concurrent runs don't race on the shared :latest tag.
-# Don't cancel an in-flight publish.
+# Serialize whole publish runs per ref so concurrent runs don't race on the shared :latest tags.
+# (The matrix legs push different tags, so they run in parallel within a run.) Don't cancel an
+# in-flight publish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -29,16 +31,25 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: lean
+            image: ghcr.io/lahaluhem/linterpol
+            dockerfile: images/lean/Dockerfile
+          - variant: jvm
+            image: ghcr.io/lahaluhem/linterpol-jvm
+            dockerfile: images/jvm/Dockerfile
     env:
-      IMAGE: ghcr.io/lahaluhem/linterpol
       PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      # arm64 is the only emulated platform (amd64 is native to the runner); the only steps that
-      # execute in the arm64 rootfs are the container-structure-test checksum-verify and the
-      # Dockerfile's one-line useradd, both trivial.
+      # arm64 is the only emulated platform (amd64 is native to the runner); the steps that run in
+      # the arm64 rootfs are trivial (each image's one-line useradd, plus lean's Lane-2
+      # download-verifies; the jvm image fetches ktlint on the native build arch).
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
         with:
@@ -61,17 +72,19 @@ jobs:
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
         with:
           context: .
-          file: images/lean/Dockerfile
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           provenance: false
           push: ${{ env.PUBLISH == 'true' }}
-          tags: ${{ env.IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ matrix.image }}:latest
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,scope=${{ matrix.variant }},mode=max
 
       # A publish is only "done" when the manifest carries both arches (hard rule 8).
       - name: Verify the manifest carries both arches
         if: env.PUBLISH == 'true'
+        env:
+          IMAGE: ${{ matrix.image }}
         run: |
           inspect="$(docker buildx imagetools inspect "$IMAGE:latest")"
           echo "$inspect"
