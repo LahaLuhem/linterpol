@@ -1,0 +1,29 @@
+# container-structure-test spec for the .NET variant image (linterpol-dotnet), run by test.yml
+# against the freshly built image with the tar driver (no Docker socket needed). The dotnet image
+# carries no container-structure-test of its own (it's a sibling: the .NET runtime + CSharpier only),
+# so CI runs the *lean* image's container-structure-test against this image's tarball. It locks the
+# same invocation contract as the lean image: tools sit on PATH, the image runs as the non-root
+# `lint` user from /work, and there is NO entrypoint wrapper (so `docker run <img> csharpier <args>`
+# works). The tar driver can't execute commands, so "do the tools actually run" is covered by
+# test.yml's csharpier lint step and the image's own self-check CMD.
+schemaVersion: "2.0.0"
+
+metadataTest:
+  user: "lint"
+  workdir: "/work"
+  entrypoint: []
+
+fileExistenceTests:
+  - name: csharpier on PATH
+    path: /usr/local/bin/csharpier
+    shouldExist: true
+    isExecutableBy: any
+  # The csharpier wrapper is a 2-line shim that runs this DLL via the dotnet host, so the DLL has to
+  # be present for the tool to work; the wrapper existing alone isn't enough.
+  - name: CSharpier payload present (the net10.0 DLL the wrapper runs)
+    path: /opt/csharpier/CSharpier.dll
+    shouldExist: true
+  - name: dotnet host on PATH
+    path: /usr/bin/dotnet
+    shouldExist: true
+    isExecutableBy: any
