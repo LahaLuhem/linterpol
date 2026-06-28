@@ -1,0 +1,24 @@
+# container-structure-test spec for the JVM variant image (linterpol-jvm), run by test.yml against
+# the freshly built image with the tar driver (no Docker socket needed). The jvm image carries no
+# container-structure-test of its own (it's a sibling: a JRE + ktlint only), so CI runs the *lean*
+# image's container-structure-test against this image's tarball. It locks the same invocation
+# contract as the lean image: tools sit on PATH, the image runs as the non-root `lint` user from
+# /work, and there is NO entrypoint wrapper (so `docker run <img> ktlint <args>` works). The tar
+# driver can't execute commands, so "do the tools actually run" is covered by test.yml's ktlint lint
+# step and the image's own self-check CMD.
+schemaVersion: "2.0.0"
+
+metadataTest:
+  user: "lint"
+  workdir: "/work"
+  entrypoint: []
+
+fileExistenceTests:
+  - name: ktlint on PATH
+    path: /usr/local/bin/ktlint
+    shouldExist: true
+    isExecutableBy: any
+  - name: java present (Temurin JRE)
+    path: /opt/java/openjdk/bin/java
+    shouldExist: true
+    isExecutableBy: any

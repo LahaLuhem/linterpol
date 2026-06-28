@@ -56,6 +56,11 @@ RUN useradd --create-home --uid 10001 lint
 USER lint
 WORKDIR /work
 
+# Temurin ships an ENTRYPOINT (/__cacert_entrypoint.sh) that would wrap every `docker run <img>
+# <tool> <args>`. Clear it so this image matches the lean image's contract (no entrypoint; the args
+# ARE the command). ktlint lints local files, so the entrypoint's runtime CA-cert import isn't needed.
+ENTRYPOINT []
+
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol-jvm:local ktlint --relative
 CMD ["sh", "-c", "java -version && ktlint --version"]

@@ -50,7 +50,7 @@ linterpol/
 ├── images/
 │   └── lean/Dockerfile     lean tools image (linterpol:latest); two lanes, FROMs pinned tag@digest
 ├── scripts/
-│   ├── build.sh            local host-arch build + self-check (tags linterpol:local)
+│   ├── build.sh            host-arch build + self-check of any/all variants (linterpol[-<v>]:local)
 │   └── gen-linters.sh      regenerate the LINTERS.md table from the Dockerfile (+ --check)
 ├── tests/
 │   └── image-structure.yaml  container-structure-test spec (PATH + image-contract checks)
@@ -100,8 +100,8 @@ linterpol/
 
 ## Build & test flow
 
-1. `./scripts/build.sh` builds `linterpol:local` for the host arch and self-checks (prints each tool's
-   version).
+1. `./scripts/build.sh [variant...]` builds the named variants (or all of `images/*/` if none) for the
+   host arch and self-checks each. See [`APPENDIX.md#build-script`](./APPENDIX.md#build-script).
 2. `test.yml` builds the image and **dogfoods** it: structure-tests the image with its own
    `container-structure-test` (tar driver, no socket) against `tests/image-structure.yaml`, lints
    this repo's own Dockerfile / workflows / shell scripts with the image it just built, and runs

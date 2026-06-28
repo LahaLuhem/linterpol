@@ -5,6 +5,7 @@
 - [The two-lane architecture](#two-lane-architecture)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
+- [The build script: shell with variant args, not bake (yet)](#build-script)
 - [Reproducibility: digest pins + Renovate](#reproducibility-renovate)
 - [Publishing is gated to `main` and manual dispatch](#publish-gating)
 
@@ -149,6 +150,37 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   `COPY --from` of the upstream image for Lane 1, a download-and-verify stage for Lane 2). The only
   steps that execute in the target rootfs are the `container-structure-test` checksum-verify and a
   one-line `useradd`, both trivial, so the QEMU penalty is negligible and the simpler single job wins.
+
+---
+
+<a id="build-script"></a>
+## The build script: shell with variant args, not bake (yet)
+
+- **Decision:** [`scripts/build.sh`](./scripts/build.sh) is a thin shell wrapper that builds one or
+  more image variants for the host arch and runs each image's self-check. It takes variant names as
+  args (`./scripts/build.sh jvm`, or `lean jvm`, or none for all) and auto-discovers them from
+  `images/*/Dockerfile`, mapping `lean` to `linterpol:local` and `<v>` to `linterpol-<v>:local`.
+- **Not one script per image.** The per-image difference is two strings (the Dockerfile path and the
+  tag); a script per variant would copy the other ~20 lines just to vary those two. One arg-taking
+  script keeps the build-and-self-check logic in one place, and CI still calls exactly the variant it
+  needs (`./scripts/build.sh jvm`).
+- **Not `docker buildx bake` (yet).** Bake is the Docker-native way to declare several build targets
+  in one file, and it's the obvious destination if this grows. Two things make it not worth it
+  today: (1) build.sh also runs the self-check (`docker run <image>`), which bake doesn't do, so bake
+  would replace only the *build* invocation, not the script; and (2) at two small variants the shell
+  loop is trivial and adds no new file or language (HCL).
+- **When to switch to bake.** Reach for a `docker-bake.hcl` once any of these holds:
+  - **~3+ variants, or per-variant build options diverge** (different `--build-arg`s, platforms,
+    cache scopes, labels). Bake's target inheritance and matrices cut the duplication a shell loop
+    starts to pile up.
+  - **One declarative target set should feed both local and CI.** Bake files are consumed by
+    `docker buildx bake` locally and by `docker/bake-action` in CI, so platforms/tags/targets live in
+    one place instead of being repeated across build.sh and `build_and_push.yml`.
+  - **You need several images built in one buildx call** with a shared cache, instead of N separate
+    `docker buildx build` invocations.
+
+  Even then the self-check stays a separate step (bake builds, it doesn't run), so build.sh or a small
+  successor keeps that job.
 
 ---
 
