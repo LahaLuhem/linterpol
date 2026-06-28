@@ -1,44 +1,55 @@
 #!/usr/bin/env bash
 #
-# Generate the linter table in LINTERS.md from the Dockerfile.
+# Generate the per-image linter tables in LINTERS.md from the Dockerfiles.
 #
-# The Dockerfile is the single source of truth. For each Lane-1 tool the version and
-# upstream image come from its `FROM <img>:<tag>@<digest> AS <name>` line; the descriptive
-# bits (what it lints, its repo link) come from a `# linter:` annotation directly above
-# that FROM:
+# There is one image variant per images/<variant>/Dockerfile, and one table region per variant in
+# LINTERS.md, marked by <!-- linters:<variant>:start --> / <!-- linters:<variant>:end --> and filled
+# from that variant's Dockerfile. The Dockerfiles are the single source of truth.
+#
+# For each Lane-1 tool the version and upstream image come from its `FROM <img>:<tag>@<digest> AS
+# <name>` line; the descriptive bits (what it lints, its repo link) come from a `# linter:`
+# annotation directly above that FROM:
 #
 #     # linter: lints: Dockerfiles | repo: https://github.com/hadolint/hadolint
 #     FROM hadolint/hadolint:v2.14.0-alpine@sha256:... AS hadolint
 #
-# A Lane-2 tool (apt/npm/pip, no FROM) carries its own name + version in the annotation:
+# A Lane-2 tool (apt/npm/pip, or a downloaded binary; no FROM) carries its own name in the
+# annotation, with the version either inline (`| version: x.y.z |`) or, for a downloaded binary, in
+# the first `ARG <NAME>_VERSION=` line below it (so the ARG stays the single version source and
+# Renovate can bump it):
 #
-#     # linter: tool: yamllint | version: 1.35.1 | lane: 2 | lints: YAML | repo: https://...
+#     # linter: tool: ktlint | lane: 2 | lints: Kotlin | repo: https://github.com/ktlint/ktlint
+#     ARG KTLINT_VERSION=1.8.0
 #
-# The table is written between the markers in LINTERS.md; the rest of that file is
-# hand-written and left untouched.
+# The tables are written between the markers in LINTERS.md; the rest of that file is hand-written and
+# left untouched.
 #
 # Usage:
-#   ./scripts/gen-linters.sh           rewrite the table in LINTERS.md
+#   ./scripts/gen-linters.sh           rewrite every table in LINTERS.md
 #   ./scripts/gen-linters.sh --check   exit non-zero if LINTERS.md is stale; write nothing
 #
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
-dockerfile='images/lean/Dockerfile'
 manifest='LINTERS.md'
-start='<!-- linters:start -->'
-end='<!-- linters:end -->'
 
 tmp_table=''
 tmp_out=''
 cleanup() {
   if [ -n "${tmp_table:-}" ]; then rm -f "$tmp_table"; fi
-  if [ -n "${tmp_out:-}" ]; then rm -f "$tmp_out"; fi
+  if [ -n "${tmp_out:-}" ]; then rm -f "$tmp_out" "${tmp_out}.new"; fi
 }
 trap cleanup EXIT
 
-# Emit the markdown table (header + one row per tool) from the Dockerfile to stdout.
+# Image variants: one per images/<variant>/Dockerfile.
+list_variants() {
+  for d in images/*/; do
+    [ -f "${d}Dockerfile" ] && basename "$d"
+  done
+}
+
+# Emit the markdown table (header + one row per tool) for the Dockerfile in $1, to stdout.
 gen_table() {
   awk '
     function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
@@ -111,30 +122,46 @@ gen_table() {
       emit(name, tag, "1", p_lints, p_repo, imgtag)
       pending = 0
     }
-  ' "$dockerfile"
+  ' "$1"
 }
 
-# Print LINTERS.md with the table region replaced by a freshly generated table.
-render() {
-  tmp_table="$(mktemp)"
-  gen_table >"$tmp_table"
-  awk -v tablefile="$tmp_table" -v s="$start" -v e="$end" '
+# Print $1 with the region between markers $3 / $4 replaced by the contents of file $2.
+replace_section() {
+  awk -v tablefile="$2" -v s="$3" -v e="$4" '
     BEGIN { while ((getline line < tablefile) > 0) tbl = tbl line "\n"; sub(/\n$/, "", tbl) }
     index($0, s) { print; print tbl; skip = 1; next }
     index($0, e) { skip = 0; print; next }
     skip { next }
     { print }
-  ' "$manifest"
+  ' "$1"
 }
 
 main() {
-  if ! grep -qF "$start" "$manifest" || ! grep -qF "$end" "$manifest"; then
-    printf 'error: %s is missing the "%s" / "%s" markers\n' "$manifest" "$start" "$end" >&2
+  variant_list=()
+  while IFS= read -r v; do
+    if [ -n "$v" ]; then variant_list+=("$v"); fi
+  done < <(list_variants)
+
+  if [ "${#variant_list[@]}" -eq 0 ]; then
+    echo "error: no image variants found (images/*/Dockerfile)" >&2
     exit 2
   fi
 
+  tmp_table="$(mktemp)"
   tmp_out="$(mktemp)"
-  render >"$tmp_out"
+  cp "$manifest" "$tmp_out"
+
+  for v in "${variant_list[@]}"; do
+    start="<!-- linters:${v}:start -->"
+    end="<!-- linters:${v}:end -->"
+    if ! grep -qF "$start" "$tmp_out" || ! grep -qF "$end" "$tmp_out"; then
+      printf 'error: %s is missing the "%s" / "%s" markers for variant %s\n' "$manifest" "$start" "$end" "$v" >&2
+      exit 2
+    fi
+    gen_table "images/${v}/Dockerfile" >"$tmp_table"
+    replace_section "$tmp_out" "$tmp_table" "$start" "$end" >"${tmp_out}.new"
+    mv "${tmp_out}.new" "$tmp_out"
+  done
 
   if [ "${1:-}" = '--check' ]; then
     if diff -u "$manifest" "$tmp_out" >/dev/null; then
