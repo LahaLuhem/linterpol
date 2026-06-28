@@ -42,29 +42,31 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # Build the image, prove LINTERS.md is in sync with the Dockerfile, then dogfood it: structure-test
-  # the image with its own container-structure-test, and lint this repo's own sources with the tools
-  # from the image (not the runner). actionlint runs shellcheck on the workflows' run: blocks too.
+  # Build both images, prove LINTERS.md is in sync with the Dockerfiles, then dogfood them:
+  # structure-test the lean image with its own container-structure-test and the jvm image via the
+  # lean image's (the jvm sibling carries no c-s-t), and lint this repo's own sources with the lean
+  # image's tools (not the runner). actionlint runs shellcheck on the workflows' run: blocks too.
   selftest:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     env:
       LINTERPOL_IMAGE: linterpol:local
+      JVM_IMAGE: linterpol-jvm:local
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: LINTERS.md is generated from the Dockerfile
+      - name: LINTERS.md is generated from the Dockerfiles
         run: ./scripts/gen-linters.sh --check
 
-      - name: Build the image
+      - name: Build the images (lean + jvm)
         run: ./scripts/build.sh
 
-      # Structure-test the freshly built image with its own container-structure-test (tar driver,
-      # so no Docker socket needed): asserts the six tools are on PATH and the image's contract
+      # Structure-test the freshly built lean image with its own container-structure-test (tar
+      # driver, so no Docker socket needed): asserts the tools are on PATH and the image's contract
       # (non-root lint user, /work workdir, no entrypoint). See tests/image-structure.yaml.
-      - name: Structure-test the image (container-structure-test)
+      - name: Structure-test the lean image (container-structure-test)
         run: |
           docker save "$LINTERPOL_IMAGE" -o "$RUNNER_TEMP/image.tar"
           chmod 0644 "$RUNNER_TEMP/image.tar"
@@ -74,8 +76,20 @@ jobs:
             "$LINTERPOL_IMAGE" \
             container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure.yaml
 
-      - name: Lint Dockerfile (hadolint)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint images/lean/Dockerfile
+      # The jvm sibling carries no container-structure-test of its own, so run the lean image's
+      # against the jvm image's tarball. Asserts java + ktlint on PATH and the same contract.
+      - name: Structure-test the jvm image (via the lean image's container-structure-test)
+        run: |
+          docker save "$JVM_IMAGE" -o "$RUNNER_TEMP/jvm.tar"
+          chmod 0644 "$RUNNER_TEMP/jvm.tar"
+          docker run --rm \
+            -v "$RUNNER_TEMP/jvm.tar:/img/image.tar:ro" \
+            -v "$PWD:/work:ro" \
+            "$LINTERPOL_IMAGE" \
+            container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure-jvm.yaml
+
+      - name: Lint Dockerfiles (hadolint)
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint images/lean/Dockerfile images/jvm/Dockerfile
 
       - name: Lint shell scripts (shellcheck)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck scripts/*.sh
