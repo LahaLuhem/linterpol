@@ -1,0 +1,42 @@
+# ryl (Rust yamllint) config for linting this repo's own YAML, the way test.yml dogfoods it. ryl
+# enables no rules without a config, and its TOML form has no `extends`, so yamllint's default
+# ruleset is listed explicitly below, with a few repo-fit relaxations:
+#   - line-length 120 (matches the Markdown MD013 limit, not yamllint's tight 80)
+#   - document-start off (the repo's YAML doesn't use explicit `---`)
+#   - truthy check-keys off (`on:` in GitHub workflows is a key, not a 1.1 boolean)
+#   - comments min-spaces 1 (SHA-pinned action `# vX` comments sit one space from content)
+# Equivalent to the yamllint YAML `extends: default` + those four overrides.
+[rules]
+anchors = "enable"
+braces = "enable"
+brackets = "enable"
+colons = "enable"
+commas = "enable"
+document-end = "disable"
+document-start = "disable"
+empty-lines = "enable"
+empty-values = "disable"
+float-values = "disable"
+hyphens = "enable"
+indentation = "enable"
+key-duplicates = "enable"
+key-ordering = "disable"
+new-line-at-end-of-file = "enable"
+new-lines = "enable"
+octal-values = "disable"
+quoted-strings = "disable"
+trailing-spaces = "enable"
+
+[rules.comments]
+level = "warning"
+min-spaces-from-content = 1
+
+[rules.comments-indentation]
+level = "warning"
+
+[rules.line-length]
+max = 120
+
+[rules.truthy]
+check-keys = false
+level = "warning"
