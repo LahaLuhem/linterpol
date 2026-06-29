@@ -114,11 +114,46 @@ RUN set -eux; \
     tar -xzf "/tmp/${asset}" -C /usr/local/bin rumdl; \
     chmod 0755 /usr/local/bin/rumdl
 
+# ryl (a yamllint reimplementation in Rust) has no official image either, distributed as per-arch
+# musl release tarballs like rumdl, so it's another Lane-2 download. The one difference from rumdl:
+# ryl publishes a single SHA256SUMS file for the whole release (c-s-t's model) rather than a per-asset
+# .sha256, so pull the one matching line out of it to verify. Assets are named by Rust target triple
+# (aarch64/x86_64), so map TARGETARCH and fetch with curl in this throwaway stage. The ARG is the
+# single source of version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it
+# (custom.regex manager, .github/renovate.jsonc). See APPENDIX#yaml-ryl and #two-lane-architecture.
+FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS ryl-dl
+# linter: tool: ryl | lane: 2 | lints: YAML | repo: https://github.com/owenlamont/ryl
+# renovate: datasource=github-releases depName=owenlamont/ryl
+ARG RYL_VERSION=v0.21.0
+ARG TARGETARCH
+# curl + ca-certificates live only in this throwaway stage; a Debian point-release pin is brittle and
+# Renovate can't track an apt pin, so DL3008 is intentionally ignored here.
+# hadolint ignore=DL3008
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends curl ca-certificates; \
+    rm -rf /var/lib/apt/lists/*; \
+    case "${TARGETARCH}" in \
+      amd64) rarch=x86_64 ;; \
+      arm64) rarch=aarch64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    asset="ryl-${rarch}-unknown-linux-musl.tar.gz"; \
+    base="https://github.com/owenlamont/ryl/releases/download/${RYL_VERSION}"; \
+    curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"; \
+    curl -fsSL -o /tmp/SHA256SUMS "${base}/SHA256SUMS"; \
+    checksum="$(awk -v a="${asset}" '$2==a {print $1}' /tmp/SHA256SUMS)"; \
+    test -n "${checksum}"; \
+    echo "${checksum}  /tmp/${asset}" > /tmp/ryl.sha256; \
+    sha256sum -c /tmp/ryl.sha256; \
+    tar -xzf "/tmp/${asset}" -C /usr/local/bin ryl; \
+    chmod 0755 /usr/local/bin/ryl
+
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
 LABEL org.opencontainers.image.title="Linterpol" \
-      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, container-structure-test." \
+      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, ryl, container-structure-test." \
       org.opencontainers.image.licenses="MIT"
 
 # Lane 1 binaries. All statically linked, so they run on any base.
@@ -132,6 +167,7 @@ COPY --from=biome      /usr/local/bin/biome       /usr/local/bin/biome
 COPY --from=cst-dl      /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
 COPY --from=swiftlint-dl /usr/local/bin/swiftlint               /usr/local/bin/swiftlint
 COPY --from=rumdl-dl     /usr/local/bin/rumdl                    /usr/local/bin/rumdl
+COPY --from=ryl-dl       /usr/local/bin/ryl                      /usr/local/bin/ryl
 
 # --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
 #   RUN apt-get update \
@@ -145,4 +181,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && swiftlint version && rumdl --version && container-structure-test version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && swiftlint version && rumdl --version && ryl --version && container-structure-test version"]
