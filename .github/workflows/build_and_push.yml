@@ -38,12 +38,18 @@ jobs:
           - variant: lean
             image: ghcr.io/lahaluhem/linterpol
             dockerfile: images/lean/Dockerfile
+            title: Linterpol
+            description: "Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, ryl, container-structure-test."
           - variant: jvm
             image: ghcr.io/lahaluhem/linterpol-jvm
             dockerfile: images/jvm/Dockerfile
+            title: Linterpol JVM
+            description: "JVM-stack CI lint tools: ktlint."
           - variant: dotnet
             image: ghcr.io/lahaluhem/linterpol-dotnet
             dockerfile: images/dotnet/Dockerfile
+            title: Linterpol .NET
+            description: ".NET-stack CI lint tools: CSharpier."
     env:
       PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     steps:
@@ -70,8 +76,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # On publish runs this pushes the multi-arch index; on pull requests push=false, so
-      # both arches build (validation) but nothing is pushed.
+      # Generate tags + OCI labels + OCI annotations (index and manifest level) from the build
+      # context. This is the single source of truth for image metadata; the Dockerfiles carry no
+      # LABELs. title/description are curated per variant (the matrix); source/revision/created/
+      # version/licenses fill in automatically from the repo and the build commit.
+      - name: Docker metadata (tags, labels, annotations)
+        id: meta
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6
+        with:
+          images: ${{ matrix.image }}
+          tags: type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=${{ matrix.title }}
+            org.opencontainers.image.description=${{ matrix.description }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
+
+      # On publish runs this pushes the multi-arch index; on pull requests push=false, so both
+      # arches build (validation) but nothing is pushed. oci-mediatypes=true makes the pushed index,
+      # manifests, config, and layers use OCI media types instead of Docker schema 2.
       - name: Build (and push on publish runs)
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
         with:
@@ -79,13 +102,17 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           provenance: false
-          push: ${{ env.PUBLISH == 'true' }}
-          tags: ${{ matrix.image }}:latest
+          outputs: type=image,oci-mediatypes=true,push=${{ env.PUBLISH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,scope=${{ matrix.variant }},mode=max
 
-      # A publish is only "done" when the manifest carries both arches (hard rule 8).
-      - name: Verify the manifest carries both arches
+      # A publish is only "done" when the manifest carries both arches (hard rule 8) and the index
+      # uses the OCI media type (the point of oci-mediatypes=true above), so a regression back to
+      # Docker schema 2 fails the run.
+      - name: Verify the published index (both arches + OCI media type)
         if: env.PUBLISH == 'true'
         env:
           IMAGE: ${{ matrix.image }}
@@ -98,4 +125,9 @@ jobs:
               exit 1
             fi
           done
-          echo "OK: manifest carries linux/amd64 + linux/arm64"
+          raw="$(docker buildx imagetools inspect "$IMAGE:latest" --raw)"
+          if ! grep -qF 'application/vnd.oci.image.index.v1+json' <<<"$raw"; then
+            echo "ERROR: published index is not an OCI image index (media type)" >&2
+            exit 1
+          fi
+          echo "OK: OCI index carries linux/amd64 + linux/arm64"
