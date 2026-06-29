@@ -16,7 +16,7 @@ Three images today, one per `images/<variant>/Dockerfile`:
 
 - **`linterpol`** (lean): **hadolint** (Dockerfiles), **actionlint** (GitHub workflows),
   **shellcheck** (shell), **ruff** (Python lint + format), **swiftlint** (Swift),
-  **container-structure-test** (container image structure).
+  **rumdl** (Markdown), **container-structure-test** (container image structure).
 - **`linterpol-jvm`** (sibling): a JRE plus **ktlint** (Kotlin). Separate so the lean image stays
   JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
 - **`linterpol-dotnet`** (sibling): the .NET runtime plus **CSharpier** (C#). Separate so the lean
@@ -53,7 +53,7 @@ Full list: [`LINTERS.md`](./LINTERS.md).
 - **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
 - **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
   and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
-  `ARG`-pinned tool versions (`container-structure-test`, `swiftlint`, `ktlint`, `csharpier`). Weekly. See
+  `ARG`-pinned tool versions (`container-structure-test`, `swiftlint`, `rumdl`, `ktlint`, `csharpier`). Weekly. See
   [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
 - **Bash** — `scripts/build.sh` (local build + self-check) and `scripts/gen-linters.sh`.
 
@@ -110,7 +110,7 @@ linterpol/
    both platforms. (All current tools do, natively.)
 5. **Pin upstreams by digest** (`tag@sha256:…`: the tag is the readable version, the digest makes
    the build reproducible). The exceptions are the downloaded binaries (`container-structure-test`,
-   `swiftlint`, `ktlint`), which have no usable image and are version-pinned + verified at build (each
+   `swiftlint`, `rumdl`, `ktlint`), which have no usable image and are version-pinned + verified at build (each
    version lives in an `ARG <NAME>_VERSION`). Don't hand-edit a digest or those versions except when
    adding/removing a tool; **Renovate owns the bumps**. See
    [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).

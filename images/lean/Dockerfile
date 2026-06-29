@@ -73,11 +73,47 @@ RUN set -eux; \
     unzip -p /tmp/swiftlint.zip swiftlint-static > /usr/local/bin/swiftlint; \
     chmod 0755 /usr/local/bin/swiftlint
 
+# rumdl has no official image (it's distributed as per-arch release tarballs), so it's a Lane-2
+# download like c-s-t and swiftlint above: fetch the per-arch musl tarball (fully static, runs on
+# bare debian), verify it against the release's own per-asset .sha256, extract the single `rumdl`
+# binary, then COPY it into the final image. Unlike c-s-t/swiftlint, rumdl names its assets by Rust
+# target triple (aarch64/x86_64), not Docker's arm64/amd64, so map TARGETARCH and fetch with curl in
+# this throwaway stage (ADD can't remap the arch into its URL). The ARG is the single source of
+# version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it (custom.regex manager,
+# .github/renovate.jsonc). See APPENDIX#two-lane-architecture.
+FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS rumdl-dl
+# linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
+# renovate: datasource=github-releases depName=rvben/rumdl
+ARG RUMDL_VERSION=v0.2.25
+ARG TARGETARCH
+# curl + ca-certificates live only in this throwaway stage; a Debian point-release pin is brittle and
+# Renovate can't track an apt pin, so DL3008 is intentionally ignored here.
+# hadolint ignore=DL3008
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends curl ca-certificates; \
+    rm -rf /var/lib/apt/lists/*; \
+    case "${TARGETARCH}" in \
+      amd64) rarch=x86_64 ;; \
+      arm64) rarch=aarch64 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    asset="rumdl-${RUMDL_VERSION}-${rarch}-unknown-linux-musl.tar.gz"; \
+    base="https://github.com/rvben/rumdl/releases/download/${RUMDL_VERSION}"; \
+    curl -fsSL -o "/tmp/${asset}" "${base}/${asset}"; \
+    curl -fsSL -o "/tmp/${asset}.sha256" "${base}/${asset}.sha256"; \
+    checksum="$(awk '{print $1}' "/tmp/${asset}.sha256")"; \
+    test -n "${checksum}"; \
+    echo "${checksum}  /tmp/${asset}" > /tmp/rumdl.sha256; \
+    sha256sum -c /tmp/rumdl.sha256; \
+    tar -xzf "/tmp/${asset}" -C /usr/local/bin rumdl; \
+    chmod 0755 /usr/local/bin/rumdl
+
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
 LABEL org.opencontainers.image.title="Linterpol" \
-      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, swiftlint, container-structure-test." \
+      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, swiftlint, rumdl, container-structure-test." \
       org.opencontainers.image.licenses="MIT"
 
 # Lane 1 binaries. All statically linked, so they run on any base.
@@ -89,6 +125,7 @@ COPY --from=ruff       /ruff                      /usr/local/bin/ruff
 # Lane 2 downloaded binaries, extracted/verified in the *-dl stages above (also statically linked).
 COPY --from=cst-dl      /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
 COPY --from=swiftlint-dl /usr/local/bin/swiftlint               /usr/local/bin/swiftlint
+COPY --from=rumdl-dl     /usr/local/bin/rumdl                    /usr/local/bin/rumdl
 
 # --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
 #   RUN apt-get update \
@@ -102,4 +139,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && swiftlint version && container-structure-test version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && swiftlint version && rumdl --version && container-structure-test version"]
