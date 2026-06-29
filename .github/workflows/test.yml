@@ -102,7 +102,9 @@ jobs:
             container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure-dotnet.yaml
 
       - name: Lint Dockerfiles (hadolint)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" hadolint images/lean/Dockerfile images/jvm/Dockerfile images/dotnet/Dockerfile
+        run: >-
+          docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE"
+          hadolint images/lean/Dockerfile images/jvm/Dockerfile images/dotnet/Dockerfile
 
       - name: Lint shell scripts (shellcheck)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck scripts/*.sh
@@ -116,3 +118,7 @@ jobs:
       # biome check = lint + format check; biome.json pins space indent to match the repo.
       - name: Lint JSON/JSONC (biome)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" biome check .
+
+      # ryl reads .ryl.toml (yamllint's default ruleset with repo-fit relaxations).
+      - name: Lint YAML (ryl)
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" ryl .
