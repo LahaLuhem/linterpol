@@ -29,7 +29,7 @@ Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
-- **`linterpol`**: hadolint, actionlint, shellcheck, ruff, swiftlint, and container-structure-test.
+- **`linterpol`**: hadolint, actionlint, shellcheck, ruff, swiftlint, rumdl, and container-structure-test.
 - **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
 - **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
@@ -100,7 +100,7 @@ Within an image, tools come in two lanes, picked by how a tool ships:
 - **Lane 1, static binaries** (Go/Rust/Haskell): one build stage per tool, then `COPY` the
   binary into the final image. Tiny and natively multi-arch. Most modern linters land here.
 - **Lane 2, tools with no usable static image**: an npm/pip/apt/NuGet install block, or a single
-  prebuilt binary downloaded and verified (swiftlint, container-structure-test, ktlint, csharpier).
+  prebuilt binary downloaded and verified (swiftlint, container-structure-test, rumdl, ktlint, csharpier).
 
 Adding a linter touches just its lane, plus a row in [LINTERS.md](./LINTERS.md), where the
 steps live.
