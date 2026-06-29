@@ -15,7 +15,8 @@ contributor installing the tools by hand.
 Three images today, one per `images/<variant>/Dockerfile`:
 
 - **`linterpol`** (lean): **hadolint** (Dockerfiles), **actionlint** (GitHub workflows),
-  **shellcheck** (shell), **ruff** (Python lint + format), **swiftlint** (Swift),
+  **shellcheck** (shell), **ruff** (Python lint + format),
+  **biome** (JSON/JSONC + JS/TS/CSS/GraphQL), **swiftlint** (Swift),
   **rumdl** (Markdown), **container-structure-test** (container image structure).
 - **`linterpol-jvm`** (sibling): a JRE plus **ktlint** (Kotlin). Separate so the lean image stays
   JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
