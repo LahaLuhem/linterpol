@@ -27,6 +27,11 @@ FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fe
 FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
 # linter: lints: Python (lint + format) | repo: https://github.com/astral-sh/ruff
 FROM ghcr.io/astral-sh/ruff:0.15.20@sha256:03cc33c3f7f31ba53040fb1f1b8744a03a777033650f543d689d1ed98298f14b AS ruff
+# biome is a whole web-stack toolchain; we add it for JSON/JSONC but it lints+formats JS/TS/CSS/
+# GraphQL too, so those come for free (see APPENDIX#json-biome). Static binary, official multi-arch
+# image -> a plain Lane-1 COPY like ruff above.
+# linter: lints: JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | repo: https://github.com/biomejs/biome
+FROM ghcr.io/biomejs/biome:2.5.1@sha256:14977977824e1a38e526083999c28c6cdeb6b120af22b16b3e596d8f5df6ea49 AS biome
 
 # --- Lane 2: tools with no usable multi-arch image. ---
 # container-structure-test ships no usable multi-arch image (gcr.io/gcp-runtimes is amd64-only
@@ -113,7 +118,7 @@ RUN set -eux; \
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
 LABEL org.opencontainers.image.title="Linterpol" \
-      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, swiftlint, rumdl, container-structure-test." \
+      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, container-structure-test." \
       org.opencontainers.image.licenses="MIT"
 
 # Lane 1 binaries. All statically linked, so they run on any base.
@@ -121,6 +126,7 @@ COPY --from=hadolint   /bin/hadolint             /usr/local/bin/hadolint
 COPY --from=actionlint /usr/local/bin/actionlint /usr/local/bin/actionlint
 COPY --from=shellcheck /bin/shellcheck           /usr/local/bin/shellcheck
 COPY --from=ruff       /ruff                      /usr/local/bin/ruff
+COPY --from=biome      /usr/local/bin/biome       /usr/local/bin/biome
 
 # Lane 2 downloaded binaries, extracted/verified in the *-dl stages above (also statically linked).
 COPY --from=cst-dl      /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
@@ -139,4 +145,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && swiftlint version && rumdl --version && container-structure-test version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && swiftlint version && rumdl --version && container-structure-test version"]
