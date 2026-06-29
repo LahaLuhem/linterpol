@@ -2,15 +2,15 @@
 
 [![Build & Publish](https://github.com/LahaLuhem/linterpol/actions/workflows/build_and_push.yml/badge.svg?branch=main)](https://github.com/LahaLuhem/linterpol/actions/workflows/build_and_push.yml)
 [![Test](https://github.com/LahaLuhem/linterpol/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/LahaLuhem/linterpol/actions/workflows/test.yml)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LahaLuhem/linterpol/pulls)
+[![OCI compliant](https://img.shields.io/badge/OCI-compliant-2496ED)](./APPENDIX.md#oci-metadata)
+![multi-arch](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-2496ED)
+[![ghcr.io](https://img.shields.io/badge/ghcr.io-lahaluhem%2Flinterpol-2496ED?logo=docker&logoColor=white)](https://github.com/LahaLuhem/linterpol/pkgs/container/linterpol)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/issues)
-[![GitHub closed issues](https://img.shields.io/github/issues-closed/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/issues?q=is%3Aissue+is%3Aclosed)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/pulls)
-[![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/LahaLuhem/linterpol.svg)](https://github.com/LahaLuhem/linterpol/pulls?q=is%3Apr+is%3Aclosed)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LahaLuhem/linterpol/pulls)
 
-Small, multi-arch Docker images with the CLI linters I reuse across my repos. Lint any
-checkout with `docker run`, no installing tools by hand. Three images:
+Small, multi-arch, OCI-compliant images with the CLI linters I reuse across my repos. Lint any
+checkout with one `docker run`, no installing tools by hand. They're plain OCI images, so they run
+anywhere that speaks OCI, not just Docker: Podman, containerd, nerdctl, your CI runner. Three images:
 
 - **`linterpol`** (lean): static-binary linters for the common stack (hadolint, shellcheck, ...).
 - **`linterpol-jvm`**: a JRE plus JVM-language linters (ktlint). Kept separate so the lean image
@@ -24,8 +24,8 @@ docker pull ghcr.io/lahaluhem/linterpol-jvm:latest
 docker pull ghcr.io/lahaluhem/linterpol-dotnet:latest
 ```
 
-Both are published to GHCR for `linux/amd64` and `linux/arm64`, so they run native on Apple
-Silicon and on the usual x86 CI runners.
+All three publish to GHCR as OCI images for `linux/amd64` and `linux/arm64`, so they run native on
+Apple Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
@@ -84,11 +84,11 @@ format and drivers.
 You don't need to, but if you want the image from source:
 
 ```bash
-./scripts/build.sh          # builds every variant (linterpol:local, linterpol-jvm:local) + self-checks
+./scripts/build.sh          # builds every variant (linterpol, linterpol-jvm, linterpol-dotnet) + self-checks
 ./scripts/build.sh jvm      # or just one variant
 ```
 
-Then swap `linterpol:local` (or `linterpol-jvm:local`) in for the `ghcr.io/...` tag above.
+Then swap `linterpol:local` (or the `-jvm` / `-dotnet` variant) in for the `ghcr.io/...` tag above.
 
 ## Architecture
 
@@ -121,7 +121,7 @@ linter list myself, but that's the whole point here.
 
 ## Roadmap
 
-The lean and `linterpol-jvm` images publish multi-arch; `linterpol-dotnet` (CSharpier) is the newest
-sibling. detekt and more JVM-language linters can still follow in the jvm image. Beyond that it's
-keeping the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as
-I reach for them in other repos.
+All three images publish multi-arch; `linterpol-dotnet` (CSharpier) is the newest sibling. More
+JVM-language linters (detekt and others) can still follow in the jvm image. Beyond that it's keeping
+the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as I reach
+for them in other repos.

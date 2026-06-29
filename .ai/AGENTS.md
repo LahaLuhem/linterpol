@@ -131,6 +131,10 @@ hypothetical futures.
 7. **Verify versions/digests against registries before pinning** — never from memory.
 8. **Never claim a multi-arch publish succeeded** without `docker manifest inspect <ref>` showing
    **both** `linux/amd64` and `linux/arm64`.
+9. **Image metadata is workflow-owned.** Published images use OCI media types
+   (`oci-mediatypes=true`), and their `org.opencontainers.image.*` labels and annotations come from
+   `docker/metadata-action` in `build_and_push.yml`, **not** `LABEL`s in the Dockerfiles (which stay
+   LABEL-free). See [`APPENDIX.md#oci-metadata`](./APPENDIX.md#oci-metadata).
 
 ## Build & test flow
 
@@ -161,10 +165,13 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
 
 - **Dockerfile:** two lanes; one `FROM` + one `COPY` per Lane-1 tool, each with a `# linter:`
   annotation above its `FROM` (feeds `LINTERS.md`); pin `tag@digest`; in Lane 2 clean apt lists in
-  the same layer (`rm -rf /var/lib/apt/lists/*`). The image runs as the non-root `lint` user and
-  expects the repo mounted read-only at `/work`.
+  the same layer (`rm -rf /var/lib/apt/lists/*`). No `org.opencontainers.image.*` `LABEL`s; image
+  metadata is workflow-owned (hard rule 9). The image runs as the non-root `lint` user and expects
+  the repo mounted read-only at `/work`.
 - **Workflow YAML:** 2-space indent; pin actions by **SHA + a version comment** (so Renovate
-  tracks them); keep `run:` blocks `actionlint`/shellcheck-clean.
+  tracks them); keep `run:` blocks `actionlint`/shellcheck-clean; and run `ryl` on touched YAML
+  before calling it done (`test.yml` lints all YAML with it, per `.ryl.toml`), since `actionlint`
+  alone doesn't catch everything `ryl` does.
 - **Bash:** `set -euo pipefail`; quote expansions.
 - **Docs:** don't hardcode a tool *count* in prose (e.g. "the lean image's nine"); it churns on
   every tool add. Enumerate tools where it helps, or use count-free phrasing; the generated
