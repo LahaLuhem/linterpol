@@ -27,6 +27,7 @@ What each image ships, one row per tool. There are three images:
 | [ruff](https://github.com/astral-sh/ruff) | 0.15.20 | 1 (static) | Python (lint + format) | `ghcr.io/astral-sh/ruff:0.15.20` |
 | [container-structure-test](https://github.com/GoogleContainerTools/container-structure-test) | v1.22.1 | 2 | container image structure & metadata | n/a |
 | [swiftlint](https://github.com/realm/SwiftLint) | 0.65.0 | 2 | Swift | n/a |
+| [rumdl](https://github.com/rvben/rumdl) | v0.2.25 | 2 | Markdown | n/a |
 <!-- linters:lean:end -->
 
 > actionlint also runs shellcheck on `run:` blocks on its own, since shellcheck is on
