@@ -109,3 +109,6 @@ jobs:
 
       - name: Lint workflows (actionlint)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" actionlint
+
+      - name: Lint Markdown (rumdl)
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" rumdl check .

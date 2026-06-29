@@ -1,3 +1,5 @@
+# Appendix: design rationale
+
 <!-- TOC start -->
 
 - [`AGENTS.md` and `CLAUDE.md` are symlinks into `.ai/`](#ai-files-symlinked)
