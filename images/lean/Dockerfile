@@ -152,10 +152,6 @@ RUN set -eux; \
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
 
-LABEL org.opencontainers.image.title="Linterpol" \
-      org.opencontainers.image.description="Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, ryl, container-structure-test." \
-      org.opencontainers.image.licenses="MIT"
-
 # Lane 1 binaries. All statically linked, so they run on any base.
 COPY --from=hadolint   /bin/hadolint             /usr/local/bin/hadolint
 COPY --from=actionlint /usr/local/bin/actionlint /usr/local/bin/actionlint
