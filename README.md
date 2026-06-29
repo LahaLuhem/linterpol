@@ -29,7 +29,8 @@ Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
-- **`linterpol`**: hadolint, actionlint, shellcheck, ruff, biome (JSON/JSONC plus JS/TS/CSS/GraphQL), swiftlint, rumdl, and container-structure-test.
+- **`linterpol`**: hadolint, actionlint, shellcheck, ruff,
+  biome (JSON/JSONC plus JS/TS/CSS/GraphQL), swiftlint, rumdl, and container-structure-test.
 - **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
 - **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
