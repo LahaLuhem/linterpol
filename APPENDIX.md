@@ -8,6 +8,7 @@
 - [The JVM variant: a sibling image, not a Lane 3](#jvm-variant)
 - [The .NET variant: CSharpier only, no build tooling](#dotnet-variant)
 - [JSON: Biome, and why not a single-purpose linter](#json-biome)
+- [YAML: ryl, a Rust yamllint](#yaml-ryl)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [The build script: shell with variant args, not bake (yet)](#build-script)
@@ -242,6 +243,35 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   **prantlf/jsonlint** (Node) and **v-jsonlint** (V), which both miss the Rust/performance bar and
   would drag in a runtime or an obscure toolchain. Revisit if a real `.json5` file ever needs
   linting.
+
+---
+
+<a id="yaml-ryl"></a>
+## YAML: ryl, a Rust yamllint
+
+- **Decision:** YAML linting is [ryl](https://github.com/owenlamont/ryl), a Rust reimplementation of
+  yamllint, added as a Lane-2 download (a per-arch musl release tarball verified against the release's
+  `SHA256SUMS`, the same shape as rumdl). Its rules live in `.ryl.toml` at the repo root.
+- **Why ryl over yamllint.** yamllint is the dominant, mature standard, but it's Python, so adding it
+  would pull an interpreter runtime into the lean image (its first), against the static-binary grain.
+  ryl is the same call already made for rumdl over markdownlint and ruff over the flake8/black stack:
+  a fast static Rust binary that drops into Lane 2 cleanly, with all 23 yamllint rules. The cost is
+  maturity (ryl is young, ~47 stars against yamllint's thousands), accepted the way rumdl's was.
+- **It needs a config, unlike yamllint.** ryl enables *no* rules without one, so `.ryl.toml` is
+  required rather than optional (the analog of `.rumdl.toml` and `biome.json`). It carries yamllint's
+  default ruleset (the TOML form has no `extends`, so the defaults are listed explicitly) plus four
+  repo-fit relaxations: line-length 120 (matching the Markdown MD013 limit, not yamllint's 80), no
+  required `---` document start, `truthy` with `check-keys` off, and one-space inline comments. With
+  those, `ryl .` is clean on the repo's workflows and structure-test specs.
+- **The `on:` nuance.** ryl parses strict YAML 1.2, so a *value* like `foo: on` is the string "on",
+  not a boolean (yamllint defaults to 1.1, where it is a boolean). But the `truthy` rule still flags
+  `on:`-style *keys* in workflows the same way yamllint does, independent of the spec version, which
+  is why the config turns `check-keys` off.
+- **Rejected alternatives.** **yamllint** (above; the Python runtime weight). **yaml-lint-rs** (Rust,
+  but far earlier: ~6 stars, ~11 rules). **pretty_yaml** (g-plane, Rust, a dprint plugin) is a
+  *formatter*, not a linter, so it doesn't cover the style rules (indentation, line length, key
+  duplication) that are the point here. Biome was a non-starter: it does not lint YAML, and the rule
+  isn't on its roadmap.
 
 ---
 
