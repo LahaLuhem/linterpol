@@ -1,0 +1,39 @@
+name: Cleanup old package versions
+
+# Every :latest republish leaves the previous multi-arch index untagged, so untagged versions pile
+# up across the three GHCR packages. This prunes them on a weekly cron: it keeps the 10 newest
+# untagged generations per package and never deletes anything younger than 30 days, a safe margin
+# for a digest a consumer has sha-pinned (they get at least that long to bump off it). The live
+# tagged :latest and its per-arch children are left alone; only untagged versions are in scope.
+#
+# It starts in dry-run, so it only logs what it WOULD delete. Review a run's output first, then flip
+# dry-run to false to actually prune. Deleting published versions is outward-facing.
+#
+# Longer-term fix (immutable per-build tags, so consumers pin a retained tag and cleanup needs no
+# age/keep guards): see the README roadmap and https://github.com/LahaLuhem/linterpol/issues/15.
+
+on:
+  schedule:
+    - cron: "30 4 * * 1"   # Mondays 04:30 UTC, matching Renovate's weekly cadence
+  workflow_dispatch:
+
+# One cleanup at a time; don't cancel an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune untagged generations (keep newest 10, nothing younger than 30 days)
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
+        with:
+          packages: linterpol,linterpol-jvm,linterpol-dotnet
+          keep-n-untagged: 10
+          older-than: "30 days"
+          dry-run: false

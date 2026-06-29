@@ -125,3 +125,8 @@ All three images publish multi-arch; `linterpol-dotnet` (CSharpier) is the newes
 JVM-language linters (detekt and others) can still follow in the jvm image. Beyond that it's keeping
 the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as I reach
 for them in other repos.
+
+On registry hygiene: a weekly job prunes old untagged image versions
+([`cleanup-packages.yml`](.github/workflows/cleanup-packages.yml)). The planned upgrade is immutable
+per-build tags, so consumers pin a retained tag instead of a `:latest` digest and cleanup needs no
+age window ([#15](https://github.com/LahaLuhem/linterpol/issues/15)).
