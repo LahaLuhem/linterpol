@@ -7,6 +7,7 @@
 - [The two-lane architecture](#two-lane-architecture)
 - [The JVM variant: a sibling image, not a Lane 3](#jvm-variant)
 - [The .NET variant: CSharpier only, no build tooling](#dotnet-variant)
+- [JSON: Biome, and why not a single-purpose linter](#json-biome)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [The build script: shell with variant args, not bake (yet)](#build-script)
@@ -60,9 +61,9 @@ Why not an off-the-shelf aggregator (researched 2026-06):
   not "lean + extensible".
 
 Rolling our own is a handful of mostly-static binaries (`COPY --from` the official images, or a
-download-and-verify for the ones that ship no usable image): ~350 MB with the current set
-(SwiftLint's static build is ~80 MB of that), natively multi-arch, MIT, and you curate exactly the
-tool set. The trade-off (you maintain the list) is the point. See
+download-and-verify for the ones that ship no usable image): ~415 MB with the current set
+(Biome's static binary is ~53 MB and SwiftLint's ~80 MB of that), natively multi-arch, MIT, and you
+curate exactly the tool set. The trade-off (you maintain the list) is the point. See
 [#two-lane-architecture](#two-lane-architecture).
 
 ---
@@ -74,7 +75,7 @@ Tools are added via one of two lanes, chosen by **how the tool is distributed**:
 
 - **Lane 1, static-binary tools** (Go/Rust/Haskell with an official image): one build stage per
   tool (`FROM <img> AS <name>`) and one `COPY --from=<name>` of the binary into the final image.
-  Cheap, tiny, natively multi-arch. Most modern linters land here. The three current tools are all
+  Cheap, tiny, natively multi-arch. Most modern linters land here. The Lane-1 tools are all
   statically linked, so the base barely matters (even `scratch` would run them); `debian:stable-slim`
   is chosen for headroom when Lane 2 grows.
 - **Lane 2, package-manager tools** (npm/pip/apt): a clearly separated install block in the
@@ -209,6 +210,38 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 - **Entrypoint.** Unlike the Temurin base the jvm image has to reset, the .NET runtime base sets no
   `ENTRYPOINT`, so there's nothing to clear; `tests/image-structure-dotnet.yaml` still asserts the
   empty entrypoint so the contract is locked either way.
+
+---
+
+<a id="json-biome"></a>
+## JSON: Biome, and why not a single-purpose linter
+
+- **Decision:** JSON/JSONC linting in the lean image is [Biome](https://github.com/biomejs/biome),
+  a Lane-1 static binary `COPY`d from its official multi-arch image (`ghcr.io/biomejs/biome`), the
+  same shape as ruff. There's no download-and-verify wrinkle: the binary is fully static (no dynamic
+  dependencies, so it drops onto `debian:stable-slim` like the other Lane-1 binaries) and the image
+  ships both `amd64` and `arm64`.
+- **Why Biome.** It's the popular, actively-maintained, Rust option, so it's fast and clears the
+  same bar that put rumdl over markdownlint. It lints + formats JSON and JSONC zero-config,
+  auto-detecting well-known comment-bearing config files (`tsconfig.json`, `.babelrc`, this repo's
+  own `renovate.jsonc`, ...).
+- **It's a whole web-stack toolchain, and here that's a feature.** Unlike the other lean tools,
+  Biome isn't single-purpose: the same binary also lints + formats JavaScript, TypeScript (with
+  JSX/TSX), CSS, and GraphQL. That coverage ships free with the binary we already pull for JSON, so
+  the `# linter:` annotation and `LINTERS.md` advertise the full set rather than pretending it's
+  JSON-only, and a later JS/TS/CSS/GraphQL need is already covered instead of being one more tool to
+  add. The cost is size: Biome's binary is ~53 MB (against low single digits for a JSON-only tool),
+  roughly a 15% bump to the lean image. Accepted for the coverage.
+- **JSON5 is deliberately out.** The request named JSON5, but as of 2026-06 no popular, maintained
+  Rust CLI linter does full JSON5 (single-quoted strings, unquoted keys, hex numbers); the Rust
+  ecosystem treats JSON5 as a parser-library concern (the `json5` crate, Google's `json5format`),
+  not a linter. JSONC (comments + trailing commas) is the variant that actually turns up in config
+  files, and Biome covers it; standalone `.json5` files are rare. Rejected alternatives: **dprint**
+  (Rust, but a formatter not a linter, JSONC-only, and its JSON support is a Wasm plugin fetched at
+  runtime, awkward to keep hermetic in an image), and the only tools that handle all three variants,
+  **prantlf/jsonlint** (Node) and **v-jsonlint** (V), which both miss the Rust/performance bar and
+  would drag in a runtime or an obscure toolchain. Revisit if a real `.json5` file ever needs
+  linting.
 
 ---
 

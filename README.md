@@ -29,7 +29,7 @@ Silicon and on the usual x86 CI runners.
 
 ## What's inside
 
-- **`linterpol`**: hadolint, actionlint, shellcheck, ruff, swiftlint, rumdl, and container-structure-test.
+- **`linterpol`**: hadolint, actionlint, shellcheck, ruff, biome (JSON/JSONC plus JS/TS/CSS/GraphQL), swiftlint, rumdl, and container-structure-test.
 - **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
 - **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
@@ -45,6 +45,7 @@ docker run --rm -v "$PWD:/work:ro" "$img" hadolint Dockerfile
 docker run --rm -v "$PWD:/work:ro" "$img" shellcheck scripts/*.sh
 docker run --rm -v "$PWD:/work:ro" "$img" sh -c 'actionlint .github/workflows/*.yml'
 docker run --rm -v "$PWD:/work:ro" "$img" ruff check .
+docker run --rm -v "$PWD:/work:ro" "$img" biome check .
 docker run --rm -v "$PWD:/work:ro" "$img" swiftlint lint
 ```
 
@@ -64,7 +65,7 @@ dotnet=ghcr.io/lahaluhem/linterpol-dotnet:latest
 docker run --rm -v "$PWD:/work:ro" "$dotnet" csharpier check .
 ```
 
-Run any image with no args and it self-checks, printing its tools' versions (the lean image's six;
+Run any image with no args and it self-checks, printing its tools' versions (the lean image's eight;
 the jvm image's `java` + `ktlint`; the dotnet image's `dotnet` + `csharpier`).
 
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
