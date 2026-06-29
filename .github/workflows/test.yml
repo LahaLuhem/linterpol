@@ -112,3 +112,7 @@ jobs:
 
       - name: Lint Markdown (rumdl)
         run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" rumdl check .
+
+      # biome check = lint + format check; biome.json pins space indent to match the repo.
+      - name: Lint JSON/JSONC (biome)
+        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" biome check .
