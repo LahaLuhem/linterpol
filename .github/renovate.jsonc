@@ -9,7 +9,8 @@
   "extends": ["config:best-practices", "schedule:weekly"],
 
   // Managers in play: dockerfile (the FROM tag@digest pins), github-actions (the workflow
-  // action SHAs), custom.regex (the Lane-2 downloaded-binary versions, marked below).
+  // action SHAs), custom.regex (the Lane-2 downloaded-binary versions and biome.json's $schema
+  // version, both below).
   "enabledManagers": ["dockerfile", "github-actions", "custom.regex"],
 
   "customManagers": [
@@ -26,6 +27,20 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG \\w+_VERSION=(?<currentValue>\\S+)"
       ]
+    },
+    {
+      // biome.json's `$schema` URL embeds the Biome version (.../schemas/<version>/schema.json).
+      // The lean image's biome is digest-pinned via its FROM (the dockerfile manager bumps that),
+      // but the schema URL is just text, so track it here so the two stay in lockstep. Biome
+      // publishes to npm as @biomejs/biome with plain-semver versions matching the schema URL.
+      "description": "Track the Biome version in biome.json's $schema URL (kept in sync with the image).",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)biome\\.json$/"],
+      "matchStrings": [
+        "biomejs\\.dev/schemas/(?<currentValue>\\d+\\.\\d+\\.\\d+)/schema\\.json"
+      ],
+      "datasourceTemplate": "npm",
+      "depNameTemplate": "@biomejs/biome"
     }
   ]
 }
