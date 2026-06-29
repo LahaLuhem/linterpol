@@ -17,7 +17,7 @@ Three images today, one per `images/<variant>/Dockerfile`:
 - **`linterpol`** (lean): **hadolint** (Dockerfiles), **actionlint** (GitHub workflows),
   **shellcheck** (shell), **ruff** (Python lint + format),
   **biome** (JSON/JSONC + JS/TS/CSS/GraphQL), **swiftlint** (Swift),
-  **rumdl** (Markdown), **container-structure-test** (container image structure).
+  **rumdl** (Markdown), **ryl** (YAML), **container-structure-test** (container image structure).
 - **`linterpol-jvm`** (sibling): a JRE plus **ktlint** (Kotlin). Separate so the lean image stays
   JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
 - **`linterpol-dotnet`** (sibling): the .NET runtime plus **CSharpier** (C#). Separate so the lean
@@ -166,6 +166,9 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
 - **Workflow YAML:** 2-space indent; pin actions by **SHA + a version comment** (so Renovate
   tracks them); keep `run:` blocks `actionlint`/shellcheck-clean.
 - **Bash:** `set -euo pipefail`; quote expansions.
+- **Docs:** don't hardcode a tool *count* in prose (e.g. "the lean image's nine"); it churns on
+  every tool add. Enumerate tools where it helps, or use count-free phrasing; the generated
+  `LINTERS.md` is the canonical list.
 
 ## Status & remaining polish (as of 2026-06-28; prune as done)
 
