@@ -40,6 +40,10 @@ fileExistenceTests:
     path: /usr/local/bin/rumdl
     shouldExist: true
     isExecutableBy: any
+  - name: ryl on PATH
+    path: /usr/local/bin/ryl
+    shouldExist: true
+    isExecutableBy: any
   - name: container-structure-test on PATH
     path: /usr/local/bin/container-structure-test
     shouldExist: true
