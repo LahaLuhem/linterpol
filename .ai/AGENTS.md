@@ -85,6 +85,16 @@ linterpol/
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
+## Making changes: refactor first
+
+Before adding a tool, variant, or workflow change, check whether the current structure is the
+right foundation for it. If a refactor would make this change (and the ones that predictably
+follow) cleaner or easier to extend, do that refactor first as its own behaviour-preserving step,
+then build on top. Long-term maintainability of the repo outranks the speed of any single change.
+Keep the refactor separate from the feature so each is easy to review and revert, and don't
+gold-plate: refactor for the change in front of you or work you can concretely see coming, not for
+hypothetical futures.
+
 ## Hard rules
 
 1. **Scope is build + publish the tools images.** Don't add consumer-specific logic; consumption
