@@ -49,10 +49,6 @@ RUN set -eux; \
 # --- Assembled image ---
 FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:6a40d375e9c8432fcf4adebae05d7e0a276e9a90dd01174df6709a090771bebc
 
-LABEL org.opencontainers.image.title="Linterpol .NET" \
-      org.opencontainers.image.description=".NET-stack CI lint tools: CSharpier." \
-      org.opencontainers.image.licenses="MIT"
-
 # CSharpier's net10.0 payload (architecture-independent IL) plus the wrapper that runs it through the
 # dotnet host, both assembled and verified in the csharpier-dl stage above.
 COPY --from=csharpier-dl /opt/csharpier             /opt/csharpier

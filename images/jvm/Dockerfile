@@ -43,10 +43,6 @@ RUN set -eux; \
 # --- Assembled image ---
 FROM eclipse-temurin:25.0.3_9-jre@sha256:7ea65de6187ad8fbcc0ad155950c38664a7371148bb3ccf1ec1e1b286b44ad08
 
-LABEL org.opencontainers.image.title="Linterpol JVM" \
-      org.opencontainers.image.description="JVM-stack CI lint tools: ktlint." \
-      org.opencontainers.image.licenses="MIT"
-
 # Lane 2 downloaded artifact, fetched/verified in the ktlint-dl stage above (arch-independent jar).
 COPY --from=ktlint-dl /usr/local/bin/ktlint /usr/local/bin/ktlint
 
