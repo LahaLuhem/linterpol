@@ -30,7 +30,7 @@
 # version in one step and keeps a Renovate bump a one-liner. The ARG is the single source of version
 # truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it (custom.regex manager,
 # .github/renovate.jsonc). See APPENDIX#jvm-variant.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21.0.11_10-jre@sha256:8ec353b20d3aab0758572236b81b967c7077c40c4d0819ce97f9a1329d684603 AS ktlint-dl
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25.0.3_9-jre@sha256:7ea65de6187ad8fbcc0ad155950c38664a7371148bb3ccf1ec1e1b286b44ad08 AS ktlint-dl
 # linter: tool: ktlint | lane: 2 | lints: Kotlin | repo: https://github.com/ktlint/ktlint
 # renovate: datasource=github-releases depName=ktlint/ktlint
 ARG KTLINT_VERSION=1.8.0
@@ -41,7 +41,7 @@ RUN set -eux; \
     grep -qF "ktlint version ${KTLINT_VERSION}" /tmp/ktlint.version
 
 # --- Assembled image ---
-FROM eclipse-temurin:21.0.11_10-jre@sha256:8ec353b20d3aab0758572236b81b967c7077c40c4d0819ce97f9a1329d684603
+FROM eclipse-temurin:25.0.3_9-jre@sha256:7ea65de6187ad8fbcc0ad155950c38664a7371148bb3ccf1ec1e1b286b44ad08
 
 LABEL org.opencontainers.image.title="Linterpol JVM" \
       org.opencontainers.image.description="JVM-stack CI lint tools: ktlint." \
