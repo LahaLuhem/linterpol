@@ -39,17 +39,17 @@ jobs:
             image: ghcr.io/lahaluhem/linterpol
             dockerfile: images/lean/Dockerfile
             title: Linterpol
-            description: "Combined CI lint tools: hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, ryl, container-structure-test."
+            description: "Common-stack CI lint tools."
           - variant: jvm
             image: ghcr.io/lahaluhem/linterpol-jvm
             dockerfile: images/jvm/Dockerfile
             title: Linterpol JVM
-            description: "JVM-stack CI lint tools: ktlint."
+            description: "JVM-stack CI lint tools."
           - variant: dotnet
             image: ghcr.io/lahaluhem/linterpol-dotnet
             dockerfile: images/dotnet/Dockerfile
             title: Linterpol .NET
-            description: ".NET-stack CI lint tools: CSharpier."
+            description: ".NET-stack CI lint tools."
     env:
       PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     steps:

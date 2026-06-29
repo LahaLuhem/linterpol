@@ -388,3 +388,34 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   publish/verify a branch.
 - **Verification:** a publish is only "done" once `docker manifest inspect <ref>` shows both
   `linux/amd64` and `linux/arm64`. Never report success without it.
+
+---
+
+<a id="oci-metadata"></a>
+## OCI media types, labels, and annotations
+
+- **Decision:** the published images are OCI-native. The buildx image exporter runs with
+  `oci-mediatypes=true` (`outputs: type=image,oci-mediatypes=true,…` in `build_and_push.yml`), so the
+  index is `application/vnd.oci.image.index.v1+json` and the manifests, config, and layers carry the
+  matching `vnd.oci.*` types instead of Docker schema 2. The verify step asserts that index media
+  type on every publish, so a regression back to Docker types fails the run.
+- **Metadata is workflow-owned, not baked into the Dockerfiles.** `docker/metadata-action` generates
+  the tags, OCI labels, and OCI annotations (at both index and manifest level, via
+  `DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest`) and `build-push-action` applies them. The
+  Dockerfiles carry no `org.opencontainers.image.*` `LABEL`s.
+- **Why not keep `LABEL`s in the Dockerfile as well.** metadata-action always emits the full standard
+  label set, and a build-time label overrides a Dockerfile `LABEL` of the same key, so a label left
+  in the Dockerfile would be silently shadowed on every published image (two sources, the workflow
+  quietly winning). One owner avoids that. The only thing given up is labels on a plain local
+  `docker build`, which doesn't matter here: only CI publishes, and `:local` images are throwaway
+  dogfood.
+- **Automatic vs curated.** `source`, `revision`, `created`, `version`, `url`, and `licenses` fill in
+  from the repo and the build commit, so they never go stale (a per-commit `revision` can't be
+  hand-maintained anyway). Only `title` and a short `description` are curated, per variant, in the
+  workflow matrix. The `description` deliberately doesn't enumerate the bundled tools: that list
+  grows, so spelling it out would churn the workflow on every tool add and can overrun the YAML
+  line-length limit `ryl` enforces. `LINTERS.md` is the canonical tool list.
+- **Why `provenance` stays `false`.** It keeps the index a clean two-entry list (`amd64` + `arm64`).
+  Enabling provenance attaches attestation manifests and `unknown/unknown` index entries;
+  `oci-mediatypes` gets OCI compliance without that extra surface. Revisit if SBOM or provenance
+  attestations ever become a requirement.
