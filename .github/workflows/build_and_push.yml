@@ -109,25 +109,17 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,scope=${{ matrix.variant }},mode=max
 
-      # A publish is only "done" when the manifest carries both arches (hard rule 8) and the index
-      # uses the OCI media type (the point of oci-mediatypes=true above), so a regression back to
-      # Docker schema 2 fails the run.
-      - name: Verify the published index (both arches + OCI media type)
+      # A publish is only "done" when the pushed image carries both arches (hard rule 8) and uses
+      # OCI media types end to end. assert_oci_registry.sh checks the index, both arches, and every
+      # manifest/config/layer; crane then validates the image is well-formed and pullable.
+      - name: Install crane
+        if: env.PUBLISH == 'true'
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+
+      - name: Verify the published image (OCI media types + crane validate)
         if: env.PUBLISH == 'true'
         env:
           IMAGE: ${{ matrix.image }}
         run: |
-          inspect="$(docker buildx imagetools inspect "$IMAGE:latest")"
-          echo "$inspect"
-          for plat in linux/amd64 linux/arm64; do
-            if ! grep -qF "$plat" <<<"$inspect"; then
-              echo "ERROR: published manifest is missing $plat" >&2
-              exit 1
-            fi
-          done
-          raw="$(docker buildx imagetools inspect "$IMAGE:latest" --raw)"
-          if ! grep -qF 'application/vnd.oci.image.index.v1+json' <<<"$raw"; then
-            echo "ERROR: published index is not an OCI image index (media type)" >&2
-            exit 1
-          fi
-          echo "OK: OCI index carries linux/amd64 + linux/arm64"
+          ./scripts/assert_oci_registry.sh "$IMAGE:latest"
+          crane validate --remote "$IMAGE:latest"

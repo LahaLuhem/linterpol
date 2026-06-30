@@ -397,8 +397,12 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 - **Decision:** the published images are OCI-native. The buildx image exporter runs with
   `oci-mediatypes=true` (`outputs: type=image,oci-mediatypes=true,…` in `build_and_push.yml`), so the
   index is `application/vnd.oci.image.index.v1+json` and the manifests, config, and layers carry the
-  matching `vnd.oci.*` types instead of Docker schema 2. The verify step asserts that index media
-  type on every publish, so a regression back to Docker types fails the run.
+  matching `vnd.oci.*` types instead of Docker schema 2. Two checks keep it honest: on publish,
+  `build_and_push.yml` runs [`scripts/assert_oci_registry.sh`](./scripts/assert_oci_registry.sh)
+  (the index, both arches, and every manifest, config, and layer) plus `crane validate` on the
+  pushed image; at PR time, `test.yml` runs
+  [`scripts/assert_oci_layout.sh`](./scripts/assert_oci_layout.sh) against a `type=oci` build of the
+  lean image, so a regression to Docker types fails before it can publish.
 - **Metadata is workflow-owned, not baked into the Dockerfiles.** `docker/metadata-action` generates
   the tags, OCI labels, and OCI annotations (at both index and manifest level, via
   `DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest`) and `build-push-action` applies them. The
