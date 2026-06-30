@@ -89,7 +89,7 @@ RUN set -eux; \
 FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS rumdl-dl
 # linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
 # renovate: datasource=github-releases depName=rvben/rumdl
-ARG RUMDL_VERSION=v0.2.25
+ARG RUMDL_VERSION=v0.2.26
 ARG TARGETARCH
 # curl + ca-certificates live only in this throwaway stage; a Debian point-release pin is brittle and
 # Renovate can't track an apt pin, so DL3008 is intentionally ignored here.
