@@ -140,11 +140,12 @@ hypothetical futures.
 
 1. `./scripts/build.sh [variant...]` builds the named variants (or all of `images/*/` if none) for the
    host arch and self-checks each. See [`APPENDIX.md#build-script`](./APPENDIX.md#build-script).
-2. `test.yml` builds all images and **dogfoods** them: structure-tests the lean image with its own
-   `container-structure-test` and the jvm + dotnet siblings via the lean image's (tar driver, no socket)
-   against the `tests/image-structure*.yaml` specs, lints this repo's Dockerfiles / workflows / shell
-   scripts with the lean image, and runs `./scripts/gen-linters.sh --check` to fail if `LINTERS.md` has
-   drifted from the Dockerfiles.
+2. `./scripts/test.sh [lint|structure|oci|all]` runs the check suite locally or in CI (one source of
+   truth, so the two can't drift): it **dogfoods** the lean image's linters over this repo, structure-
+   tests the lean image and the jvm + dotnet siblings (tar driver, no socket) against the
+   `tests/image-structure*.yaml` specs, runs `gen-linters.sh --check` for `LINTERS.md` drift, and
+   asserts the lean image's OCI media types. `test.yml` just calls its targets as separate steps
+   (behind a CI-only gate that skips commits already tested on their PR).
 3. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol`, `linterpol-jvm`, and
    `linterpol-dotnet`, gated to `main` + dispatch; PRs build-validate both arches.
 4. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
@@ -154,7 +155,8 @@ hypothetical futures.
 
 ## Testing
 
-- `./scripts/build.sh` runs locally (host arch), no CI round-trip.
+- `./scripts/build.sh` builds locally (host arch); `./scripts/test.sh` runs the full check suite
+  locally (`lint` / `structure` / `oci`, or a single target), the same thing CI runs. No CI round-trip.
 - To add a tool: add it to its lane (with its `# linter:` annotation), build locally, confirm it
   runs on this arch, and (Lane 1) confirm the upstream ships `arm64`. Leave [`LINTERS.md`](./LINTERS.md)
   to CI (`regen-linters.yml`); run `./scripts/gen-linters.sh` locally only to preview the table.

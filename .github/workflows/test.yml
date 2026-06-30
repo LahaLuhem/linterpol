@@ -42,97 +42,22 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-  # Build all images, prove LINTERS.md is in sync with the Dockerfiles, then dogfood them:
-  # structure-test the lean image with its own container-structure-test and the jvm + dotnet siblings
-  # via the lean image's (the siblings carry no c-s-t), and lint this repo's own sources with the lean
-  # image's tools (not the runner). actionlint runs shellcheck on the workflows' run: blocks too.
+  # Build the images and run the suite via scripts/test.sh (the same script you run locally, so the
+  # two can't drift), split into three steps so CI keeps per-step status. test.sh dogfoods the lean
+  # image's own linters over this repo, structure-tests all three images, and checks OCI media types.
   selftest:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
-    env:
-      LINTERPOL_IMAGE: linterpol:local
-      JVM_IMAGE: linterpol-jvm:local
-      DOTNET_IMAGE: linterpol-dotnet:local
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: LINTERS.md is generated from the Dockerfiles
-        run: ./scripts/gen-linters.sh --check
+      - name: Lint (dogfood the lean image's linters)
+        run: ./scripts/test.sh lint
 
-      - name: Build the images (lean + jvm + dotnet)
-        run: ./scripts/build.sh
+      - name: Structure-test the images
+        run: ./scripts/test.sh structure
 
-      # Build the lean image to an OCI image layout (single-arch, native to the runner) and assert
-      # it uses OCI media types throughout. Catches an oci-mediatypes / metadata regression at PR
-      # time, before build_and_push.yml's publish-time check. A --load image can't carry OCI media
-      # types, so this needs a separate type=oci build on a throwaway container-driver builder.
       - name: Validate OCI media types (lean, PR-time)
-        run: |
-          docker buildx rm ocicheck >/dev/null 2>&1 || true
-          docker buildx create --name ocicheck --driver docker-container >/dev/null
-          trap 'docker buildx rm ocicheck >/dev/null 2>&1 || true' EXIT
-          docker buildx build --builder ocicheck --platform linux/amd64 --provenance=false \
-            --output type=oci,oci-mediatypes=true,tar=false,dest="$RUNNER_TEMP/oci-lean" \
-            -f images/lean/Dockerfile .
-          ./scripts/assert_oci_layout.sh "$RUNNER_TEMP/oci-lean"
-
-      # Structure-test the freshly built lean image with its own container-structure-test (tar
-      # driver, so no Docker socket needed): asserts the tools are on PATH and the image's contract
-      # (non-root lint user, /work workdir, no entrypoint). See tests/image-structure.yaml.
-      - name: Structure-test the lean image (container-structure-test)
-        run: |
-          docker save "$LINTERPOL_IMAGE" -o "$RUNNER_TEMP/image.tar"
-          chmod 0644 "$RUNNER_TEMP/image.tar"
-          docker run --rm \
-            -v "$RUNNER_TEMP/image.tar:/img/image.tar:ro" \
-            -v "$PWD:/work:ro" \
-            "$LINTERPOL_IMAGE" \
-            container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure.yaml
-
-      # The jvm sibling carries no container-structure-test of its own, so run the lean image's
-      # against the jvm image's tarball. Asserts java + ktlint on PATH and the same contract.
-      - name: Structure-test the jvm image (via the lean image's container-structure-test)
-        run: |
-          docker save "$JVM_IMAGE" -o "$RUNNER_TEMP/jvm.tar"
-          chmod 0644 "$RUNNER_TEMP/jvm.tar"
-          docker run --rm \
-            -v "$RUNNER_TEMP/jvm.tar:/img/image.tar:ro" \
-            -v "$PWD:/work:ro" \
-            "$LINTERPOL_IMAGE" \
-            container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure-jvm.yaml
-
-      # The dotnet sibling likewise carries no container-structure-test, so run the lean image's
-      # against its tarball. Asserts csharpier + the dotnet host on PATH and the same contract.
-      - name: Structure-test the dotnet image (via the lean image's container-structure-test)
-        run: |
-          docker save "$DOTNET_IMAGE" -o "$RUNNER_TEMP/dotnet.tar"
-          chmod 0644 "$RUNNER_TEMP/dotnet.tar"
-          docker run --rm \
-            -v "$RUNNER_TEMP/dotnet.tar:/img/image.tar:ro" \
-            -v "$PWD:/work:ro" \
-            "$LINTERPOL_IMAGE" \
-            container-structure-test test --driver tar -i /img/image.tar -c /work/tests/image-structure-dotnet.yaml
-
-      - name: Lint Dockerfiles (hadolint)
-        run: >-
-          docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE"
-          hadolint images/lean/Dockerfile images/jvm/Dockerfile images/dotnet/Dockerfile
-
-      - name: Lint shell scripts (shellcheck)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" shellcheck scripts/*.sh
-
-      - name: Lint workflows (actionlint)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" actionlint
-
-      - name: Lint Markdown (rumdl)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" rumdl check .
-
-      # biome check = lint + format check; biome.json pins space indent to match the repo.
-      - name: Lint JSON/JSONC (biome)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" biome check .
-
-      # ryl reads .ryl.toml (yamllint's default ruleset with repo-fit relaxations).
-      - name: Lint YAML (ryl)
-        run: docker run --rm -v "$PWD:/work:ro" "$LINTERPOL_IMAGE" ryl .
+        run: ./scripts/test.sh oci
