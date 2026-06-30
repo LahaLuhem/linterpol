@@ -1,0 +1,19 @@
+{
+  "url": "https://context7.com/lahaluhem/linterpol",
+  "public_key": "pk_zRQqaALefsVNkJ7uS6fVf",
+  "projectTitle": "Linterpol",
+  "description": "Small, multi-arch, OCI-compliant Docker images bundling CI lint/check tools, so you can lint any checkout with a single docker run instead of installing tools by hand.",
+  "folders": [],
+  "excludeFolders": [".ai"],
+  "excludeFiles": [],
+  "rules": [
+    "Pull the images from GHCR: linterpol (lean), linterpol-jvm, and linterpol-dotnet, e.g. ghcr.io/lahaluhem/linterpol:latest.",
+    "Lint a checkout by mounting it read-only at /work and naming the tool: docker run --rm -v \"$PWD:/work:ro\" ghcr.io/lahaluhem/linterpol:latest hadolint Dockerfile.",
+    "Images run as the non-root user 'lint' and never write to the mount; there is no entrypoint, so pass the tool and its args directly.",
+    "The lean linterpol image bundles hadolint, actionlint, shellcheck, ruff, biome, swiftlint, rumdl, ryl, and container-structure-test; see LINTERS.md for the authoritative list with versions.",
+    "Use linterpol-jvm for JVM-language linters (ktlint) and linterpol-dotnet for C# (CSharpier); the lean image stays JVM- and .NET-free.",
+    "Run CSharpier in read-only check mode in CI: csharpier check .",
+    "container-structure-test inspects a built image, not files under /work, so mount the Docker socket or pass an image tarball with --driver tar.",
+    "All images are OCI-compliant and multi-arch (linux/amd64 + linux/arm64), so they run under Podman, containerd, and nerdctl, not just Docker."
+  ]
+}
