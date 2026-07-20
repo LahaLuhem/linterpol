@@ -40,7 +40,7 @@ FROM ghcr.io/biomejs/biome:2.5.1@sha256:14977977824e1a38e526083999c28c6cdeb6b120
 # The ARG is the single source of version truth: gen-linters.sh reads it for LINTERS.md and
 # Renovate bumps it (custom.regex manager, .github/renovate.jsonc). See
 # APPENDIX#two-lane-architecture.
-FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS cst-dl
+FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS cst-dl
 # linter: tool: container-structure-test | lane: 2 | lints: container image structure & metadata | repo: https://github.com/GoogleContainerTools/container-structure-test
 # renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test
 ARG CST_VERSION=v1.22.1
@@ -61,7 +61,7 @@ RUN set -eux; \
 # (unzip -t); that keeps a Renovate version bump a one-liner. The static build has no SourceKit, so a
 # few SourceKit-only rules are skipped with a warning while the SwiftSyntax majority run. See
 # APPENDIX#two-lane-architecture.
-FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS swiftlint-dl
+FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS swiftlint-dl
 # linter: tool: swiftlint | lane: 2 | lints: Swift | repo: https://github.com/realm/SwiftLint
 # renovate: datasource=github-releases depName=realm/SwiftLint
 ARG SWIFTLINT_VERSION=0.65.0
@@ -86,7 +86,7 @@ RUN set -eux; \
 # this throwaway stage (ADD can't remap the arch into its URL). The ARG is the single source of
 # version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it (custom.regex manager,
 # .github/renovate.jsonc). See APPENDIX#two-lane-architecture.
-FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS rumdl-dl
+FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS rumdl-dl
 # linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
 # renovate: datasource=github-releases depName=rvben/rumdl
 ARG RUMDL_VERSION=v0.2.26
@@ -121,7 +121,7 @@ RUN set -eux; \
 # (aarch64/x86_64), so map TARGETARCH and fetch with curl in this throwaway stage. The ARG is the
 # single source of version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it
 # (custom.regex manager, .github/renovate.jsonc). See APPENDIX#yaml-ryl and #two-lane-architecture.
-FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS ryl-dl
+FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS ryl-dl
 # linter: tool: ryl | lane: 2 | lints: YAML | repo: https://github.com/owenlamont/ryl
 # renovate: datasource=github-releases depName=owenlamont/ryl
 ARG RYL_VERSION=v0.21.0
@@ -150,7 +150,7 @@ RUN set -eux; \
     chmod 0755 /usr/local/bin/ryl
 
 # --- Assembled image ---
-FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c
+FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd
 
 # Lane 1 binaries. All statically linked, so they run on any base.
 COPY --from=hadolint   /bin/hadolint             /usr/local/bin/hadolint
