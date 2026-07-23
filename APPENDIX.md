@@ -9,6 +9,7 @@
 - [The .NET variant: CSharpier only, no build tooling](#dotnet-variant)
 - [JSON: Biome, and why not a single-purpose linter](#json-biome)
 - [YAML: ryl, a Rust yamllint](#yaml-ryl)
+- [shellspec: a shell test framework, the first non-linter](#shellspec-test-framework)
 - [`LINTERS.md` is generated from the Dockerfile](#generated-manifest)
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [The build script: shell with variant args, not bake (yet)](#build-script)
@@ -272,6 +273,49 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   *formatter*, not a linter, so it doesn't cover the style rules (indentation, line length, key
   duplication) that are the point here. Biome was a non-starter: it does not lint YAML, and the rule
   isn't on its roadmap.
+
+---
+
+<a id="shellspec-test-framework"></a>
+## shellspec: a shell test framework, the first non-linter
+
+- **Decision:** the lean image carries [shellspec](https://github.com/shellspec/shellspec), a BDD
+  unit-testing framework for POSIX shells, as a Lane-2 download. It's the first bundled tool that
+  *runs a project's own test suite* rather than statically analysing sources, so it deliberately
+  stretches the "lint/check tools" framing: for a shell project, `shellcheck` (lint) and `shellspec`
+  (test) are the two halves of CI, and shipping both in one image is the point.
+- **Why the lean image, not a sibling.** The jvm and dotnet siblings exist only because their tools
+  need a heavy runtime (a JRE, the .NET runtime). shellspec needs neither: it's pure POSIX shell, so
+  it runs on the `debian:stable-slim` base every lean tool already shares, adds well under a
+  megabyte, and is architecture-independent (one release asset, so multi-arch comes for free with no
+  per-arch handling). A sibling would isolate a cost that isn't there.
+- **Lane 2, but a downloaded tree, not a single binary.** shellspec ships one release asset,
+  `shellspec-dist.tar.gz`, with no `checksums.txt`, so integrity follows the swiftlint model: the
+  pinned `SHELLSPEC_VERSION` fetched over HTTPS from the immutable release tag plus a `tar -tzf`
+  archive check (which keeps a Renovate bump a one-liner). Unlike the other Lane-2 tools it isn't a
+  single binary but a small tree (an `sh` executable + `lib/` + `libexec/`), so the whole
+  `shellspec/` dir is extracted to `/opt/shellspec` and a PATH symlink points at the executable;
+  shellspec resolves its `lib/` relative to the resolved link, so the symlink is enough and no
+  wrapper (as ktlint and csharpier need) is required.
+- **Runtime fits the read-only contract.** shellspec writes its temp under `$TMPDIR` (`/tmp`,
+  writable), not the mount, so `docker run -v "$PWD:/work:ro" linterpol shellspec` runs a project's
+  `spec/` suite as the non-root `lint` user with no extra wiring, unlike container-structure-test
+  (which needs a Docker socket or the tar driver). Coverage needs `kcov`, a separate heavy binary,
+  so it's out of scope, the same call the jvm image makes for SwiftLint's SourceKit-only rules.
+- **Runs natively, not under emulation.** Before running specs, shellspec probes the shell for
+  defects, and that probe misfires under QEMU/Rosetta: an emulated dash gets wrongly flagged as "not
+  a POSIX shell", so spec *execution* needs the arch-matching image. Not a real constraint, since the
+  images are natively multi-arch (consumers pull the arch they run on and never emulate), but it does
+  mean shellspec's amd64 spec run is only verifiable on native amd64 (CI), not from an Apple-Silicon
+  dev host. The linters tolerate emulation; shellspec is the one tool that doesn't. Note too that its
+  PATH entry is a symlink made in the final image, not a `COPY`d one: buildx dereferences a `COPY`d
+  symlink, which would sever the executable from its `lib/`.
+- **The seam it strains: the "Lints" column.** `LINTERS.md`'s generated table has a `Lints` column
+  and the annotations are `# linter:`; a test runner has no honest value there, so its cell reads
+  "shell scripts (BDD tests)". That's a deliberate small fudge, not a rename: one test tool doesn't
+  justify reworking the generator, the column header, and every annotation. If test tooling ever
+  grows into a recurring category, the right move is to rename the column and annotation to a
+  neutral "purpose" as its own behaviour-preserving refactor first, then add more on top.
 
 ---
 

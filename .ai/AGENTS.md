@@ -8,8 +8,8 @@ first.
 ## Project goal
 
 `Linterpol` builds and publishes small, **multi-arch (`linux/amd64` + `linux/arm64`)** Docker
-images bundling the CI lint/check tools used across the author's repos, published to **GHCR under
-`ghcr.io/lahaluhem`**. The point: a checkout can be linted with `docker run` instead of every
+images bundling the CI lint, check, and test tools used across the author's repos, published to
+**GHCR under `ghcr.io/lahaluhem`**. The point: a checkout can be linted with `docker run` instead of every
 contributor installing the tools by hand.
 
 Three images today, one per `images/<variant>/Dockerfile`:
@@ -17,7 +17,8 @@ Three images today, one per `images/<variant>/Dockerfile`:
 - **`linterpol`** (lean): **hadolint** (Dockerfiles), **actionlint** (GitHub workflows),
   **shellcheck** (shell), **ruff** (Python lint + format),
   **biome** (JSON/JSONC + JS/TS/CSS/GraphQL), **swiftlint** (Swift),
-  **rumdl** (Markdown), **ryl** (YAML), **container-structure-test** (container image structure).
+  **rumdl** (Markdown), **ryl** (YAML), **container-structure-test** (container image structure),
+  **shellspec** (shell BDD tests, [the first test tool, not a linter](./APPENDIX.md#shellspec-test-framework)).
 - **`linterpol-jvm`** (sibling): a JRE plus **ktlint** (Kotlin). Separate so the lean image stays
   JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
 - **`linterpol-dotnet`** (sibling): the .NET runtime plus **CSharpier** (C#). Separate so the lean
@@ -54,7 +55,8 @@ Full list: [`LINTERS.md`](./LINTERS.md).
 - **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
 - **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
   and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
-  `ARG`-pinned tool versions (`container-structure-test`, `swiftlint`, `rumdl`, `ktlint`, `csharpier`). Weekly. See
+  `ARG`-pinned tool versions (`container-structure-test`, `swiftlint`, `rumdl`, `ryl`, `shellspec`,
+  `ktlint`, `csharpier`). Weekly. See
   [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
 - **Bash** — `scripts/build.sh` (local build + self-check) and `scripts/gen-linters.sh`.
 
@@ -120,8 +122,8 @@ hypothetical futures.
    ships both arches: `docker buildx imagetools inspect <ref>` should show an image index with
    both platforms. (All current tools do, natively.)
 5. **Pin upstreams by digest** (`tag@sha256:…`: the tag is the readable version, the digest makes
-   the build reproducible). The exceptions are the downloaded binaries (`container-structure-test`,
-   `swiftlint`, `rumdl`, `ktlint`), which have no usable image and are version-pinned + verified at build (each
+   the build reproducible). The exceptions are the downloaded tools (`container-structure-test`,
+   `swiftlint`, `rumdl`, `ryl`, `shellspec`, `ktlint`), which have no usable image and are version-pinned + verified at build (each
    version lives in an `ARG <NAME>_VERSION`). Don't hand-edit a digest or those versions except when
    adding/removing a tool; **Renovate owns the bumps**. See
    [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
