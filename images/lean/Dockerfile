@@ -149,6 +149,28 @@ RUN set -eux; \
     tar -xzf "/tmp/${asset}" -C /usr/local/bin ryl; \
     chmod 0755 /usr/local/bin/ryl
 
+# shellspec is a BDD unit-testing framework for POSIX shells. Unlike the linters above it runs a
+# project's own spec/ suite rather than analysing sources; think of it as the shell test companion
+# to shellcheck. It's pure shell, so it's architecture-independent: one release asset for every arch
+# (no per-arch handling) and multi-arch is free. That asset (shellspec-dist.tar.gz) ships no checksums
+# file, so like swiftlint integrity rests on the pinned version fetched over HTTPS from the immutable
+# release tag plus a `tar -tzf` archive check (which keeps a Renovate bump a one-liner). It's also the
+# first lean tool that's a small tree (an sh executable + lib/ + libexec/) rather than a single binary,
+# so extract the whole shellspec/ dir here; the final image COPYs it and symlinks the executable onto
+# PATH (shellspec resolves its lib relative to the resolved link). The ARG is the single source of
+# version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it (custom.regex manager,
+# .github/renovate.jsonc). See APPENDIX#two-lane-architecture.
+FROM debian:stable-slim@sha256:ee12ffb55625b99d62837a72f037d9b2f18fd0c787a89c2b9a4f09666c48776c AS shellspec-dl
+# linter: tool: shellspec | lane: 2 | lints: shell scripts (BDD tests) | repo: https://github.com/shellspec/shellspec
+# renovate: datasource=github-releases depName=shellspec/shellspec
+ARG SHELLSPEC_VERSION=0.28.1
+ADD https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/shellspec-dist.tar.gz /tmp/shellspec-dist.tar.gz
+RUN set -eux; \
+    tar -tzf /tmp/shellspec-dist.tar.gz >/dev/null; \
+    mkdir -p /opt; \
+    tar -xzf /tmp/shellspec-dist.tar.gz -C /opt; \
+    test -x /opt/shellspec/shellspec
+
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd
 
@@ -165,16 +187,24 @@ COPY --from=swiftlint-dl /usr/local/bin/swiftlint               /usr/local/bin/s
 COPY --from=rumdl-dl     /usr/local/bin/rumdl                    /usr/local/bin/rumdl
 COPY --from=ryl-dl       /usr/local/bin/ryl                      /usr/local/bin/ryl
 
+# shellspec is a tree (sh executable + lib/ + libexec/), not a single binary, so COPY the whole dir;
+# its executable is symlinked onto PATH in the final RUN below (a COPYd symlink gets dereferenced,
+# which would sever shellspec from its lib/, so the link has to be made in the final image).
+COPY --from=shellspec-dl /opt/shellspec                          /opt/shellspec
+
 # --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
 #   RUN apt-get update \
 #     && apt-get install -y --no-install-recommends <pkg> \
 #     && rm -rf /var/lib/apt/lists/*
 
-# Lint tools only read the mounted sources, so run unprivileged.
-RUN useradd --create-home --uid 10001 lint
+# Assemble the final image: put shellspec's executable on PATH (it's a tree at /opt/shellspec, so a
+# symlink keeps it tied to its lib/), and add the non-root user in the same layer (lint tools only
+# read the mounted sources, so run unprivileged). One RUN so the two don't trip hadolint's DL3059.
+RUN ln -s /opt/shellspec/shellspec /usr/local/bin/shellspec \
+ && useradd --create-home --uid 10001 lint
 USER lint
 WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && swiftlint version && rumdl --version && ryl --version && container-structure-test version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && swiftlint version && rumdl --version && ryl --version && container-structure-test version && shellspec --version"]

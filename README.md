@@ -30,7 +30,8 @@ Apple Silicon and on the usual x86 CI runners.
 ## What's inside
 
 - **`linterpol`**: hadolint, actionlint, shellcheck, ruff,
-  biome (JSON/JSONC plus JS/TS/CSS/GraphQL), swiftlint, rumdl, ryl, and container-structure-test.
+  biome (JSON/JSONC plus JS/TS/CSS/GraphQL), swiftlint, rumdl, ryl, container-structure-test, and
+  shellspec (shell BDD tests).
 - **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
 - **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
@@ -49,6 +50,7 @@ docker run --rm -v "$PWD:/work:ro" "$img" ruff check .
 docker run --rm -v "$PWD:/work:ro" "$img" biome check .
 docker run --rm -v "$PWD:/work:ro" "$img" ryl .
 docker run --rm -v "$PWD:/work:ro" "$img" swiftlint lint
+docker run --rm -v "$PWD:/work:ro" "$img" shellspec
 ```
 
 The jvm image follows the same contract (non-root `lint`, `/work`, no entrypoint), so swap the tag
@@ -78,6 +80,11 @@ checkout, so instead of a `:ro` source mount it needs the Docker socket mounted 
 via `--driver tar`). See the
 [upstream docs](https://github.com/GoogleContainerTools/container-structure-test) for the spec
 format and drivers.
+
+`shellspec` is the other tool that isn't a linter: it runs your shell `spec/` suite (BDD tests)
+rather than analysing files, so point it at a repo that's a shellspec project (one with a
+`.shellspec`). It honours the read-only mount, writing its temp to `/tmp`; code coverage needs
+`kcov` and is out of scope for these images.
 
 ## Build it yourself
 

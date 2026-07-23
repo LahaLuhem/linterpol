@@ -48,3 +48,7 @@ fileExistenceTests:
     path: /usr/local/bin/container-structure-test
     shouldExist: true
     isExecutableBy: any
+  - name: shellspec on PATH
+    path: /usr/local/bin/shellspec
+    shouldExist: true
+    isExecutableBy: any
