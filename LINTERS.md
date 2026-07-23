@@ -30,6 +30,7 @@ What each image ships, one row per tool. There are three images:
 | [swiftlint](https://github.com/realm/SwiftLint) | 0.65.0 | 2 | Swift | n/a |
 | [rumdl](https://github.com/rvben/rumdl) | v0.2.26 | 2 | Markdown | n/a |
 | [ryl](https://github.com/owenlamont/ryl) | v0.21.0 | 2 | YAML | n/a |
+| [shellspec](https://github.com/shellspec/shellspec) | 0.28.1 | 2 | shell scripts (BDD tests) | n/a |
 <!-- linters:lean:end -->
 
 > actionlint also runs shellcheck on `run:` blocks on its own, since shellcheck is on
