@@ -1,38 +1,20 @@
 # syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
 #
-# Linterpol .NET: the .NET-stack lint variant, published to ghcr.io/lahaluhem/linterpol-dotnet:latest
+# Linterpol .NET: the .NET-stack lint variant. Published to ghcr.io/lahaluhem/linterpol-dotnet:latest
 # by build_and_push.yml; built locally as linterpol-dotnet:local by ./scripts/build.sh.
 #
-# This is a *sibling* of the lean linterpol image, not a superset: it carries the .NET runtime + C#
-# linters only (no hadolint/actionlint/shellcheck/ruff/...). The .NET runtime base is heavy relative
-# to the lean image, and lean's consumers don't lint C#, so that cost is isolated to this separate
-# tag. A repo that lints both its Dockerfiles/workflows and its C# runs both images.
-#
-# Lanes mean the same thing as in the lean image (images/lean/Dockerfile): how a tool is
-# distributed. CSharpier is a Lane-2 install (a NuGet `dotnet tool`), the same way swiftlint / ktlint
-# / container-structure-test are Lane-2 elsewhere. What's new here is the *base*: a .NET runtime,
-# which is the whole reason this is a separate image.
-#
-# CSharpier is read-only by contract: `csharpier check <path>` parses and reprints C# in memory and
-# only reports the diff (non-zero exit), it never writes the mount. There is deliberately NO build /
-# restore / .sln tooling here (and no SDK in the final image): this image lints a read-only mount
-# like every other linterpol image. See APPENDIX#dotnet-variant.
+# A sibling of the lean image, not a superset: the .NET runtime + C# linters only, so lean's
+# consumers don't carry a runtime they don't need. Same lanes and run contract as lean; the new
+# thing is the .NET base. CSharpier is file-level and read-only (`csharpier check` reports the diff,
+# never writes); there is deliberately no SDK or build/restore/.sln tooling. See APPENDIX#dotnet-variant.
 
-# --- Base + CSharpier install. ---
-# CSharpier ships only as a NuGet `dotnet tool` (no native binary), so it needs the .NET runtime.
-# A dotnet tool's launcher shim is arch-specific, but the tool's payload DLLs are architecture-
-# independent IL (they live under tools/<tfm>/any/). So we install ONCE on the build host's native
-# arch (--platform=$BUILDPLATFORM, no QEMU) with the SDK, copy just the net10.0 payload (it targets
-# Microsoft.NETCore.App 10.0.0, an exact match for the runtime base below), and further down put our
-# own tiny wrapper on PATH that runs the DLL via the dotnet host instead of the arch-specific shim.
-# The only emulated step left in a cross-arch build is the one-line useradd, same as the lean image.
-#
-# Verification is "run it and assert the pinned version": CSharpier ships no checksums.txt, but
-# `dotnet tool install` validates the package signature and then running the DLL proves integrity and
-# the version in one step (the net10.0 payload's runtimeconfig sets rollForward=Major, so it also
-# runs on a newer runtime). The ARG is the single source of version truth: gen-linters.sh reads it
-# for LINTERS.md and Renovate bumps it (custom.regex manager, .github/renovate.jsonc). See
-# APPENDIX#dotnet-variant.
+# --- Base (SDK, to install the tool) + CSharpier. ---
+# CSharpier ships only as a NuGet `dotnet tool`. Its launcher shim is arch-specific but the payload
+# DLLs are architecture-independent IL, so install once on the build-host arch (--platform=
+# $BUILDPLATFORM, no QEMU) with the SDK, copy the net10.0 payload into the runtime-only final image,
+# and run it via a tiny `dotnet`-host wrapper (below) instead of the arch-specific shim. No
+# checksums.txt, but `dotnet tool install` validates the package signature and running the DLL
+# asserts the version. The ARG is the version source (Renovate bumps it). See APPENDIX#dotnet-variant.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:ea8bde36c11b6e7eec2656d0e59101d4462f6bd630730f2c8201ed0572b295d5 AS csharpier-dl
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
@@ -54,9 +36,8 @@ FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:6a40d375e9c8432fcf4adebae05d7e
 COPY --from=csharpier-dl /opt/csharpier             /opt/csharpier
 COPY --from=csharpier-dl /usr/local/bin/csharpier   /usr/local/bin/csharpier
 
-# Lint tools only read the mounted sources, so run unprivileged. Same contract as the lean image
-# (non-root lint user, /work workdir, no entrypoint) so consumers invoke every image identically.
-# Unlike the Temurin-based jvm image, the .NET runtime base sets no ENTRYPOINT, so none to clear.
+# Non-root user; same run contract as lean (non-root lint, /work, no entrypoint). Tools only read
+# the mount. Unlike the jvm image's Temurin base, the .NET runtime sets no ENTRYPOINT to clear.
 RUN useradd --create-home --uid 10001 lint
 USER lint
 WORKDIR /work

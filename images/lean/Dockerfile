@@ -1,24 +1,15 @@
 # syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
 #
-# Linterpol: a small, multi-arch combined image of CI lint tools.
-# Published to ghcr.io/lahaluhem/linterpol:latest (multi-arch) by build_and_push.yml; built
-# locally as linterpol:local by ./scripts/build.sh.
+# Linterpol: a small, multi-arch image of CI lint tools. Published to
+# ghcr.io/lahaluhem/linterpol:latest by build_and_push.yml; built locally as linterpol:local by
+# ./scripts/build.sh.
 #
-# Architecture: two lanes, chosen by how a tool is distributed.
-#   Lane 1  static-binary linters (Go/Rust/Haskell) with an official multi-arch image: one
-#           stage per tool, COPY the binary out. Cheap, tiny, natively multi-arch.
-#   Lane 2  tools with no usable multi-arch image: an apt/pip/npm install block, or (for a
-#           single prebuilt binary, e.g. container-structure-test) a download-and-verify
-#           stage we COPY the binary out of.
-# Adding a linter touches only its lane (plus a row in LINTERS.md). Nothing else changes.
+# Two lanes, by how a tool is distributed: Lane 1 = a static binary COPYd from an official image;
+# Lane 2 = no usable image, so a download-and-verify (or package install) stage. Adding a tool
+# touches only its lane plus a LINTERS.md row. See APPENDIX#two-lane-architecture.
 
-# --- Lane 1: static-binary linters. Version + digest pinned at the FROM line. ---
-# The tag is the readable version; the digest makes the build reproducible. Renovate
-# (.github/renovate.jsonc) bumps both. Each tag is a multi-arch index, so the digest
-# pin stays multi-arch.
-#
-# The `# linter:` line above each FROM feeds LINTERS.md (run ./scripts/gen-linters.sh): version
-# and image come from the FROM, the `lints:` / `repo:` fields from the annotation.
+# --- Lane 1: static-binary linters, pinned tag@digest (Renovate bumps both; the index digest
+# keeps the pin multi-arch). The `# linter:` line above each FROM feeds LINTERS.md. ---
 # linter: lints: Dockerfiles | repo: https://github.com/hadolint/hadolint
 FROM hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
 # linter: lints: GitHub Actions workflows | repo: https://github.com/rhysd/actionlint
@@ -27,19 +18,16 @@ FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fe
 FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
 # linter: lints: Python (lint + format) | repo: https://github.com/astral-sh/ruff
 FROM ghcr.io/astral-sh/ruff:0.15.20@sha256:03cc33c3f7f31ba53040fb1f1b8744a03a777033650f543d689d1ed98298f14b AS ruff
-# biome is a whole web-stack toolchain; we add it for JSON/JSONC but it lints+formats JS/TS/CSS/
-# GraphQL too, so those come for free (see APPENDIX#json-biome). Static binary, official multi-arch
-# image -> a plain Lane-1 COPY like ruff above.
+# biome: added for JSON/JSONC, but it lints+formats JS/TS/CSS/GraphQL too, for free. A plain Lane-1
+# static binary like ruff. See APPENDIX#json-biome.
 # linter: lints: JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | repo: https://github.com/biomejs/biome
 FROM ghcr.io/biomejs/biome:2.5.1@sha256:14977977824e1a38e526083999c28c6cdeb6b120af22b16b3e596d8f5df6ea49 AS biome
 
-# --- Lane 2: tools with no usable multi-arch image. ---
-# container-structure-test ships no usable multi-arch image (gcr.io/gcp-runtimes is amd64-only
-# and last built 2023), so fetch the per-arch release binary in this throwaway stage, verify it
-# against the release's own checksums.txt, and COPY just the binary into the final image below.
-# The ARG is the single source of version truth: gen-linters.sh reads it for LINTERS.md and
-# Renovate bumps it (custom.regex manager, .github/renovate.jsonc). See
-# APPENDIX#two-lane-architecture.
+# --- Lane 2: tools with no usable multi-arch image. Each pins its version in an ARG (the single
+# source of truth: Renovate bumps it, gen-linters.sh reads it for LINTERS.md) and verifies its
+# download at build. See APPENDIX#two-lane-architecture. ---
+# container-structure-test: no usable image (gcr.io/gcp-runtimes is amd64-only, last built 2023),
+# so fetch the per-arch binary here and verify it against the release's checksums.txt.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS cst-dl
 # linter: tool: container-structure-test | lane: 2 | lints: container image structure & metadata | repo: https://github.com/GoogleContainerTools/container-structure-test
 # renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test
@@ -53,14 +41,10 @@ RUN set -eux; \
     sha256sum -c /tmp/cst.sha256; \
     chmod 0755 /usr/local/bin/container-structure-test
 
-# SwiftLint ships no lightweight image (ghcr.io/realm/swiftlint carries the full Swift runtime,
-# ~185 MB), but its Linux release zip bundles a fully static `swiftlint-static` that runs on bare
-# debian, so it's a Lane-2 download like c-s-t above: fetch the per-arch zip, extract just that
-# binary, COPY it into the final image. No upstream checksums.txt covers these zips, so integrity
-# rests on the pinned version fetched over HTTPS from the immutable release tag plus a zip CRC check
-# (unzip -t); that keeps a Renovate version bump a one-liner. The static build has no SourceKit, so a
-# few SourceKit-only rules are skipped with a warning while the SwiftSyntax majority run. See
-# APPENDIX#two-lane-architecture.
+# SwiftLint's only image carries the full Swift runtime, but its release zip bundles a static
+# `swiftlint-static` that runs on bare debian: fetch the per-arch zip, extract that binary. No
+# checksums.txt for the zips, so integrity is a zip CRC check (unzip -t) plus the pinned version.
+# The static build skips a few SourceKit-only rules; the SwiftSyntax majority still run.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS swiftlint-dl
 # linter: tool: swiftlint | lane: 2 | lints: Swift | repo: https://github.com/realm/SwiftLint
 # renovate: datasource=github-releases depName=realm/SwiftLint
@@ -78,14 +62,9 @@ RUN set -eux; \
     unzip -p /tmp/swiftlint.zip swiftlint-static > /usr/local/bin/swiftlint; \
     chmod 0755 /usr/local/bin/swiftlint
 
-# rumdl has no official image (it's distributed as per-arch release tarballs), so it's a Lane-2
-# download like c-s-t and swiftlint above: fetch the per-arch musl tarball (fully static, runs on
-# bare debian), verify it against the release's own per-asset .sha256, extract the single `rumdl`
-# binary, then COPY it into the final image. Unlike c-s-t/swiftlint, rumdl names its assets by Rust
-# target triple (aarch64/x86_64), not Docker's arm64/amd64, so map TARGETARCH and fetch with curl in
-# this throwaway stage (ADD can't remap the arch into its URL). The ARG is the single source of
-# version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it (custom.regex manager,
-# .github/renovate.jsonc). See APPENDIX#two-lane-architecture.
+# rumdl: no official image, so fetch the per-arch musl tarball and verify it against the release's
+# per-asset .sha256. It names assets by Rust target triple (aarch64/x86_64), not Docker's
+# arm64/amd64, so remap TARGETARCH and fetch with curl (ADD can't remap the arch into its URL).
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS rumdl-dl
 # linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
 # renovate: datasource=github-releases depName=rvben/rumdl
@@ -114,13 +93,9 @@ RUN set -eux; \
     tar -xzf "/tmp/${asset}" -C /usr/local/bin rumdl; \
     chmod 0755 /usr/local/bin/rumdl
 
-# ryl (a yamllint reimplementation in Rust) has no official image either, distributed as per-arch
-# musl release tarballs like rumdl, so it's another Lane-2 download. The one difference from rumdl:
-# ryl publishes a single SHA256SUMS file for the whole release (c-s-t's model) rather than a per-asset
-# .sha256, so pull the one matching line out of it to verify. Assets are named by Rust target triple
-# (aarch64/x86_64), so map TARGETARCH and fetch with curl in this throwaway stage. The ARG is the
-# single source of version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it
-# (custom.regex manager, .github/renovate.jsonc). See APPENDIX#yaml-ryl and #two-lane-architecture.
+# ryl (a Rust yamllint): no official image either, same shape as rumdl (per-arch musl tarball, curl
+# + arch remap). One difference: it ships a single SHA256SUMS for the release, not a per-asset
+# .sha256, so pull the matching line out to verify. See APPENDIX#yaml-ryl.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS ryl-dl
 # linter: tool: ryl | lane: 2 | lints: YAML | repo: https://github.com/owenlamont/ryl
 # renovate: datasource=github-releases depName=owenlamont/ryl
@@ -149,17 +124,11 @@ RUN set -eux; \
     tar -xzf "/tmp/${asset}" -C /usr/local/bin ryl; \
     chmod 0755 /usr/local/bin/ryl
 
-# shellspec is a BDD unit-testing framework for POSIX shells. Unlike the linters above it runs a
-# project's own spec/ suite rather than analysing sources; think of it as the shell test companion
-# to shellcheck. It's pure shell, so it's architecture-independent: one release asset for every arch
-# (no per-arch handling) and multi-arch is free. That asset (shellspec-dist.tar.gz) ships no checksums
-# file, so like swiftlint integrity rests on the pinned version fetched over HTTPS from the immutable
-# release tag plus a `tar -tzf` archive check (which keeps a Renovate bump a one-liner). It's also the
-# first lean tool that's a small tree (an sh executable + lib/ + libexec/) rather than a single binary,
-# so extract the whole shellspec/ dir here; the final image COPYs it and symlinks the executable onto
-# PATH (shellspec resolves its lib relative to the resolved link). The ARG is the single source of
-# version truth: gen-linters.sh reads it for LINTERS.md and Renovate bumps it (custom.regex manager,
-# .github/renovate.jsonc). See APPENDIX#two-lane-architecture.
+# shellspec is a BDD test framework for POSIX shells: it runs a project's spec/ suite, not a linter.
+# Pure shell, so architecture-independent (one release asset, multi-arch free). No checksums.txt, so
+# integrity is a `tar -tzf` check plus the pinned version. It's a tree (sh executable + lib/), not a
+# single binary, so extract the whole dir; the final image symlinks the executable onto PATH.
+# See APPENDIX#shellspec-test-framework.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS shellspec-dl
 # linter: tool: shellspec | lane: 2 | lints: shell scripts (BDD tests) | repo: https://github.com/shellspec/shellspec
 # renovate: datasource=github-releases depName=shellspec/shellspec
@@ -187,9 +156,8 @@ COPY --from=swiftlint-dl /usr/local/bin/swiftlint               /usr/local/bin/s
 COPY --from=rumdl-dl     /usr/local/bin/rumdl                    /usr/local/bin/rumdl
 COPY --from=ryl-dl       /usr/local/bin/ryl                      /usr/local/bin/ryl
 
-# shellspec is a tree (sh executable + lib/ + libexec/), not a single binary, so COPY the whole dir;
-# its executable is symlinked onto PATH in the final RUN below (a COPYd symlink gets dereferenced,
-# which would sever shellspec from its lib/, so the link has to be made in the final image).
+# shellspec is a tree, so COPY the whole dir. Its executable is symlinked onto PATH in the final RUN
+# (a COPYd symlink gets dereferenced, severing it from its lib/, so make the link in the final image).
 COPY --from=shellspec-dl /opt/shellspec                          /opt/shellspec
 
 # --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
@@ -197,9 +165,8 @@ COPY --from=shellspec-dl /opt/shellspec                          /opt/shellspec
 #     && apt-get install -y --no-install-recommends <pkg> \
 #     && rm -rf /var/lib/apt/lists/*
 
-# Assemble the final image: put shellspec's executable on PATH (it's a tree at /opt/shellspec, so a
-# symlink keeps it tied to its lib/), and add the non-root user in the same layer (lint tools only
-# read the mounted sources, so run unprivileged). One RUN so the two don't trip hadolint's DL3059.
+# Final assembly: symlink shellspec onto PATH (a symlink keeps it tied to its lib/) and add the
+# non-root user (tools only read the mount). One RUN so the two don't trip hadolint's DL3059.
 RUN ln -s /opt/shellspec/shellspec /usr/local/bin/shellspec \
  && useradd --create-home --uid 10001 lint
 USER lint
