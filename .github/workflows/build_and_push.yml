@@ -54,7 +54,7 @@ jobs:
       PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # arm64 is the only emulated platform (amd64 is native to the runner); the steps that run in
       # the arm64 rootfs are trivial (each image's one-line useradd, plus lean's Lane-2
