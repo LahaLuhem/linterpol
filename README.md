@@ -77,19 +77,9 @@ the jvm image's `java` + `ktlint`; the dotnet image's `dotnet` + `csharpier`).
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
 and never writes to your mount.
 
-A few tools need more than pointing them at the mount, `buf breaking` among them. The full list
-lives in [LINTERS.md#caveats](./LINTERS.md#caveats); the two that come up most often:
-
-`container-structure-test` is the odd one out: it inspects a built image rather than files in your
-checkout, so instead of a `:ro` source mount it needs the Docker socket mounted (or an image tarball
-via `--driver tar`). See the
-[upstream docs](https://github.com/GoogleContainerTools/container-structure-test) for the spec
-format and drivers.
-
-`shellspec` is the other tool that isn't a linter: it runs your shell `spec/` suite (BDD tests)
-rather than analysing files, so point it at a repo that's a shellspec project (one with a
-`.shellspec`). It honours the read-only mount, writing its temp to `/tmp`; code coverage needs
-`kcov` and is out of scope for these images.
+Three tools need more than pointing them at the mount: `container-structure-test` inspects a built
+image, `shellspec` runs a `spec/` suite, and `buf breaking` needs a baseline it can reach. Each is
+written up in [LINTERS.md#caveats](./LINTERS.md#caveats).
 
 ## Versions
 

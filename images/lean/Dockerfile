@@ -4,9 +4,8 @@
 # ghcr.io/lahaluhem/linterpol:latest by build_and_push.yml; built locally as linterpol:local by
 # ./scripts/build.sh.
 #
-# Two lanes, by how a tool is distributed: Lane 1 = a static binary COPYd from an official image;
-# Lane 2 = no usable image, so a download-and-verify (or package install) stage. Adding a tool
-# touches only its lane plus a LINTERS.md row. See APPENDIX#two-lane-architecture.
+# Two lanes, by how a tool ships: Lane 1 = a static binary COPYd from an official image; Lane 2 = no
+# usable image, so a download-and-verify (or package install). See APPENDIX#two-lane-architecture.
 
 # --- Lane 1: static-binary linters, pinned tag@digest (Renovate bumps both; the index digest
 # keeps the pin multi-arch). The `# linter:` line above each FROM feeds LINTERS.md. ---
@@ -27,9 +26,8 @@ FROM ghcr.io/biomejs/biome:2.5.1@sha256:14977977824e1a38e526083999c28c6cdeb6b120
 # linter: lints: Protocol Buffers | repo: https://github.com/bufbuild/buf
 FROM bufbuild/buf:1.72.0@sha256:65bd496a89c762ad7151ca9e7d885a45dacb3671a8e8ec39738b9f844d3405ea AS buf
 
-# --- Lane 2: tools with no usable multi-arch image. Each pins its version in an ARG (the single
-# source of truth: Renovate bumps it, gen-linters.sh reads it for LINTERS.md) and verifies its
-# download at build. See APPENDIX#two-lane-architecture. ---
+# --- Lane 2: no usable multi-arch image. Each pins its version in an ARG (the single source of
+# truth: Renovate bumps it, gen-linters.sh reads it) and verifies its download at build. ---
 # container-structure-test: no usable image (gcr.io/gcp-runtimes is amd64-only, last built 2023),
 # so fetch the per-arch binary here and verify it against the release's checksums.txt.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS cst-dl
@@ -45,10 +43,8 @@ RUN set -eux; \
     sha256sum -c /tmp/cst.sha256; \
     chmod 0755 /usr/local/bin/container-structure-test
 
-# SwiftLint's only image carries the full Swift runtime, but its release zip bundles a static
-# `swiftlint-static` that runs on bare debian: fetch the per-arch zip, extract that binary. No
-# checksums.txt for the zips, so integrity is a zip CRC check (unzip -t) plus the pinned version.
-# The static build skips a few SourceKit-only rules; the SwiftSyntax majority still run.
+# SwiftLint's only image carries the whole Swift runtime, so extract the static `swiftlint-static`
+# from the release zip instead; no checksums.txt, hence `unzip -t`. See APPENDIX#two-lane-architecture.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS swiftlint-dl
 # linter: tool: swiftlint | lane: 2 | lints: Swift | repo: https://github.com/realm/SwiftLint
 # renovate: datasource=github-releases depName=realm/SwiftLint
@@ -66,16 +62,14 @@ RUN set -eux; \
     unzip -p /tmp/swiftlint.zip swiftlint-static > /usr/local/bin/swiftlint; \
     chmod 0755 /usr/local/bin/swiftlint
 
-# rumdl: no official image, so fetch the per-arch musl tarball and verify it against the release's
-# per-asset .sha256. It names assets by Rust target triple (aarch64/x86_64), not Docker's
-# arm64/amd64, so remap TARGETARCH and fetch with curl (ADD can't remap the arch into its URL).
+# rumdl: no official image, so verify the per-arch musl tarball against its .sha256. Assets are named
+# by Rust target triple, so remap TARGETARCH and use curl (ADD can't remap the arch into its URL).
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS rumdl-dl
 # linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
 # renovate: datasource=github-releases depName=rvben/rumdl
 ARG RUMDL_VERSION=v0.2.26
 ARG TARGETARCH
-# curl + ca-certificates live only in this throwaway stage; a Debian point-release pin is brittle and
-# Renovate can't track an apt pin, so DL3008 is intentionally ignored here.
+# Throwaway stage again, and Renovate can't track an apt pin, so DL3008 is ignored (see swiftlint-dl).
 # hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
@@ -97,16 +91,14 @@ RUN set -eux; \
     tar -xzf "/tmp/${asset}" -C /usr/local/bin rumdl; \
     chmod 0755 /usr/local/bin/rumdl
 
-# ryl (a Rust yamllint): no official image either, same shape as rumdl (per-arch musl tarball, curl
-# + arch remap). One difference: it ships a single SHA256SUMS for the release, not a per-asset
-# .sha256, so pull the matching line out to verify. See APPENDIX#yaml-ryl.
+# ryl (a Rust yamllint): same shape as rumdl, except it ships one SHA256SUMS for the release rather
+# than a per-asset .sha256, so pull the matching line out to verify. See APPENDIX#yaml-ryl.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS ryl-dl
 # linter: tool: ryl | lane: 2 | lints: YAML | repo: https://github.com/owenlamont/ryl
 # renovate: datasource=github-releases depName=owenlamont/ryl
 ARG RYL_VERSION=v0.21.0
 ARG TARGETARCH
-# curl + ca-certificates live only in this throwaway stage; a Debian point-release pin is brittle and
-# Renovate can't track an apt pin, so DL3008 is intentionally ignored here.
+# Throwaway stage again, and Renovate can't track an apt pin, so DL3008 is ignored (see swiftlint-dl).
 # hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
@@ -128,11 +120,8 @@ RUN set -eux; \
     tar -xzf "/tmp/${asset}" -C /usr/local/bin ryl; \
     chmod 0755 /usr/local/bin/ryl
 
-# shellspec is a BDD test framework for POSIX shells: it runs a project's spec/ suite, not a linter.
-# Pure shell, so architecture-independent (one release asset, multi-arch free). No checksums.txt, so
-# integrity is a `tar -tzf` check plus the pinned version. It's a tree (sh executable + lib/), not a
-# single binary, so extract the whole dir; the final image symlinks the executable onto PATH.
-# See APPENDIX#shellspec-test-framework.
+# shellspec: pure shell, so one arch-independent asset; no checksums.txt, hence `tar -tzf`. A tree
+# (executable + lib/), not one binary, so extract the dir. See APPENDIX#shellspec-test-framework.
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd AS shellspec-dl
 # linter: tool: shellspec | lane: 2 | lints: shell scripts (BDD tests) | repo: https://github.com/shellspec/shellspec
 # renovate: datasource=github-releases depName=shellspec/shellspec
