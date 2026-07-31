@@ -1,9 +1,10 @@
 name: Regenerate LINTERS.md
 
 # When the Dockerfile's tool set changes, the generated table in LINTERS.md goes stale and
-# test.yml's `gen-linters.sh --check` fails. This regenerates the table and commits it back
-# with the lahaluhem-ci-bot App token. An App-token push (unlike a GITHUB_TOKEN push)
-# re-triggers workflows, so test.yml re-runs and the drift check clears on its own.
+# test.yml's `gen-linters.sh --check` fails. This regenerates it and commits it back with the
+# lahaluhem-ci-bot App token, via the GitHub API rather than `git commit`: main requires verified
+# signatures, an App token can't sign locally, and API-created commits are signed by GitHub. An
+# App-token commit (unlike a GITHUB_TOKEN one) re-triggers workflows, so the drift check clears itself.
 #
 # Two entry points, both filtered to Dockerfile edits:
 #   - pull_request: Renovate's bumps and manual tool-add PRs. The fix is committed back to the
@@ -48,28 +49,30 @@ jobs:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      # No write token here: the commit goes through the API below, not `git push`.
       - name: Checkout the target branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.head_ref || github.ref_name }}
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Regenerate LINTERS.md from the Dockerfile
         run: ./scripts/gen-linters.sh
 
       - name: Commit back if the table changed
         env:
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           TARGET_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           if git diff --quiet -- LINTERS.md; then
             echo "LINTERS.md already in sync with the Dockerfile; nothing to commit."
             exit 0
           fi
-          # The numeric prefix is the bot's GitHub user id (stable per App) so the commit
-          # links to lahaluhem-ci-bot's avatar.
-          git config user.name  "${APP_SLUG}[bot]"
-          git config user.email "287673903+${APP_SLUG}[bot]@users.noreply.github.com"
-          git add LINTERS.md
-          git commit -m 'chore: regenerate LINTERS.md'
-          git push origin "HEAD:${TARGET_REF}"
+          # Assign first: a bare $(...) inside the gh args would send an empty body on failure
+          # instead of aborting. `sha` is the blob being replaced, which is the version at HEAD.
+          content="$(base64 -w0 LINTERS.md)"
+          blob="$(git rev-parse HEAD:LINTERS.md)"
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/LINTERS.md" \
+            -f message='chore: regenerate LINTERS.md' \
+            -f content="${content}" \
+            -f sha="${blob}" \
+            -f branch="${TARGET_REF}" >/dev/null
