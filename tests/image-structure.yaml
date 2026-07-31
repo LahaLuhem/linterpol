@@ -32,6 +32,10 @@ fileExistenceTests:
     path: /usr/local/bin/biome
     shouldExist: true
     isExecutableBy: any
+  - name: buf on PATH
+    path: /usr/local/bin/buf
+    shouldExist: true
+    isExecutableBy: any
   - name: swiftlint on PATH
     path: /usr/local/bin/swiftlint
     shouldExist: true

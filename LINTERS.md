@@ -36,6 +36,9 @@ What each image ships, one row per tool. There are three images:
 > actionlint also runs shellcheck on `run:` blocks on its own, since shellcheck is on
 > PATH in the same image.
 
+> buf is bundled for `buf lint`, but the same binary also carries `buf breaking`, `buf format`, and
+> `buf build`. Its breaking-change baseline needs care in this image: see [Caveats](#caveats).
+
 ## `linterpol-jvm`
 
 <!-- linters:jvm:start -->
@@ -53,6 +56,45 @@ What each image ships, one row per tool. There are three images:
 | --- | --- | --- | --- | --- |
 | [csharpier](https://github.com/belav/csharpier) | 1.3.0 | 2 | C# | n/a |
 <!-- linters:dotnet:end -->
+
+## Caveats
+
+Per-tool gotchas the tables can't show. A tool lands here when running it correctly takes more than
+pointing it at the mount.
+
+### `buf`: no `git` in the image, so use a git-free breaking-change baseline
+
+`buf breaking --against '.git#branch=main'` fails with `exec: "git": executable file not found in
+$PATH`. buf shells out to `git clone` for git inputs, and this image ships no git: adding it costs
+about 98 MiB, twice buf's own binary, to buy one baseline form that already has two equivalents.
+Both git-free forms work as-is:
+
+```bash
+# a plain checkout of the base ref, which your CI already knows how to produce
+docker run --rm -v "$PWD:/work:ro" "$img" buf breaking --against ../baseline
+
+# or a descriptor set, built once by `buf build -o base.binpb`
+docker run --rm -v "$PWD:/work:ro" "$img" buf breaking --against base.binpb
+```
+
+The descriptor set is the better pattern regardless of this image. It's a ~4 KB artifact that pins
+the exact schema you promised, so the comparison can't drift as `main` moves, and the same baseline
+works across CI runs and across repos. A git ref re-resolves every run and only works where the
+history does.
+
+`buf lint` and `buf format` need none of this: they read your checkout and the `buf.yaml` in it.
+
+One more thing worth knowing about `buf lint`: it compiles, so it needs the whole import graph to
+resolve. An unresolvable import makes it report *only* `imported file does not exist` and nothing
+else, so a missing dependency looks like a clean-ish failure rather than a lint result. Well-known
+types (`google/protobuf/*`) are built in; anything else has to be vendored in the tree or resolved
+through a `buf.lock`.
+
+### `container-structure-test` and `shellspec`
+
+Neither reads your checkout the way a linter does, so both want a different invocation:
+`container-structure-test` inspects a built image (Docker socket or `--driver tar`), and `shellspec`
+runs a `spec/` suite. Both are covered in [README.md#use](./README.md#use).
 
 ## Adding a linter
 
