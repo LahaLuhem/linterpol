@@ -22,6 +22,10 @@ FROM ghcr.io/astral-sh/ruff:0.15.20@sha256:03cc33c3f7f31ba53040fb1f1b8744a03a777
 # static binary like ruff. See APPENDIX#json-biome.
 # linter: lints: JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | repo: https://github.com/biomejs/biome
 FROM ghcr.io/biomejs/biome:2.5.1@sha256:14977977824e1a38e526083999c28c6cdeb6b120af22b16b3e596d8f5df6ea49 AS biome
+# buf: Protobuf lint, with `breaking` and `format` along for the ride. Its git-input baseline needs a
+# git binary, which this image doesn't ship: see LINTERS.md#caveats.
+# linter: lints: Protocol Buffers | repo: https://github.com/bufbuild/buf
+FROM bufbuild/buf:1.72.0@sha256:65bd496a89c762ad7151ca9e7d885a45dacb3671a8e8ec39738b9f844d3405ea AS buf
 
 # --- Lane 2: tools with no usable multi-arch image. Each pins its version in an ARG (the single
 # source of truth: Renovate bumps it, gen-linters.sh reads it for LINTERS.md) and verifies its
@@ -149,6 +153,7 @@ COPY --from=actionlint /usr/local/bin/actionlint /usr/local/bin/actionlint
 COPY --from=shellcheck /bin/shellcheck           /usr/local/bin/shellcheck
 COPY --from=ruff       /ruff                      /usr/local/bin/ruff
 COPY --from=biome      /usr/local/bin/biome       /usr/local/bin/biome
+COPY --from=buf        /usr/local/bin/buf         /usr/local/bin/buf
 
 # Lane 2 downloaded binaries, extracted/verified in the *-dl stages above (also statically linked).
 COPY --from=cst-dl      /usr/local/bin/container-structure-test /usr/local/bin/container-structure-test
@@ -174,4 +179,4 @@ WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
 #   docker run --rm -v "$PWD:/work:ro" linterpol:local hadolint Dockerfile
-CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && swiftlint version && rumdl --version && ryl --version && container-structure-test version && shellspec --version"]
+CMD ["sh", "-c", "hadolint --version && actionlint --version && shellcheck --version && ruff --version && biome --version && buf --version && swiftlint version && rumdl --version && ryl --version && container-structure-test version && shellspec --version"]

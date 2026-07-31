@@ -31,8 +31,8 @@ Apple Silicon and on the usual x86 CI runners. In CI, pin a version rather than 
 ## What's inside
 
 - **`linterpol`**: hadolint, actionlint, shellcheck, ruff,
-  biome (JSON/JSONC plus JS/TS/CSS/GraphQL), swiftlint, rumdl, ryl, container-structure-test, and
-  shellspec (shell BDD tests).
+  biome (JSON/JSONC plus JS/TS/CSS/GraphQL), buf (Protobuf), swiftlint, rumdl, ryl,
+  container-structure-test, and shellspec (shell BDD tests).
 - **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
 - **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
@@ -49,6 +49,7 @@ docker run --rm -v "$PWD:/work:ro" "$img" shellcheck scripts/*.sh
 docker run --rm -v "$PWD:/work:ro" "$img" sh -c 'actionlint .github/workflows/*.yml'
 docker run --rm -v "$PWD:/work:ro" "$img" ruff check .
 docker run --rm -v "$PWD:/work:ro" "$img" biome check .
+docker run --rm -v "$PWD:/work:ro" "$img" buf lint
 docker run --rm -v "$PWD:/work:ro" "$img" ryl .
 docker run --rm -v "$PWD:/work:ro" "$img" swiftlint lint
 docker run --rm -v "$PWD:/work:ro" "$img" shellspec
@@ -75,6 +76,9 @@ the jvm image's `java` + `ktlint`; the dotnet image's `dotnet` + `csharpier`).
 
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
 and never writes to your mount.
+
+A few tools need more than pointing them at the mount, `buf breaking` among them. The full list
+lives in [LINTERS.md#caveats](./LINTERS.md#caveats); the two that come up most often:
 
 `container-structure-test` is the odd one out: it inspects a built image rather than files in your
 checkout, so instead of a `:ro` source mount it needs the Docker socket mounted (or an image tarball
