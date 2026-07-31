@@ -18,6 +18,9 @@
   // Use GitHub's native auto-merge rather than Renovate's branch automerge, so a Dockerfile bump
   // still opens a PR and regen-linters.yml can commit the refreshed LINTERS.md to it before merge.
   "platformAutomerge": true,
+  // This repo allows rebase-merge only, and main requires linear history; leaving the strategy to
+  // the platform default would try a merge commit and be rejected.
+  "automergeStrategy": "rebase",
   "packageRules": [
     {
       // Minor and major are deliberately left for review: most bundled tools are pre-1.0, where a
