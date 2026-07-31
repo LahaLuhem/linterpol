@@ -1,16 +1,14 @@
 name: Cleanup old package versions
 
-# Every :latest republish leaves the previous multi-arch index untagged, so untagged versions pile
-# up across the three GHCR packages. This prunes them on a weekly cron: it keeps the 10 newest
-# untagged generations per package and never deletes anything younger than 30 days, a safe margin
-# for a digest a consumer has sha-pinned (they get at least that long to bump off it). The live
-# tagged :latest and its per-arch children are left alone; only untagged versions are in scope.
+# Each release keeps its exact version tag (1.2.3) after `latest`/`1.2`/`1` move on, so nothing goes
+# untagged routinely any more; what's left to prune is the pre-1.0.0 `:latest`-era backlog and any
+# orphans. Keep the newest 10 tagged versions (a release's four tags share one version, so that's the
+# last 10 releases), delete everything untagged, never touch `latest`. The old 30-day window is gone:
+# it only existed to guess how long a consumer might still pin an unprotected digest, and consumers
+# now pin a retained tag (APPENDIX.md#versioning-releases).
 #
-# It starts in dry-run, so it only logs what it WOULD delete. Review a run's output first, then flip
-# dry-run to false to actually prune. Deleting published versions is outward-facing.
-#
-# Longer-term fix (immutable per-build tags, so consumers pin a retained tag and cleanup needs no
-# age/keep guards): see the README roadmap and https://github.com/LahaLuhem/linterpol/issues/15.
+# Back in dry-run because the rules changed and the first run clears the whole historical backlog:
+# review one run's output, then flip dry-run to false. Deleting published versions is outward-facing.
 
 on:
   schedule:
@@ -30,10 +28,12 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Prune untagged generations (keep newest 10, nothing younger than 30 days)
+      - name: Prune untagged, keep the newest 10 tagged releases
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1
         with:
           packages: linterpol,linterpol-jvm,linterpol-dotnet
-          keep-n-untagged: 10
-          older-than: "30 days"
-          dry-run: false
+          keep-n-tagged: 10
+          delete-untagged: true
+          exclude-tags: latest
+          validate: true   # every retained multi-arch index still has its per-arch children
+          dry-run: true

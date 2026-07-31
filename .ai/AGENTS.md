@@ -221,15 +221,14 @@ are in place and verified. To finish the standalone setup:
 - [x] **First GHCR publish** done and verified: `ghcr.io/lahaluhem/linterpol:latest` is a multi-arch
       manifest (linux/amd64 + linux/arm64), and chrysalis pins a digest of it.
 - [x] **Semver releases** (`release.yml` + tag-gated `build_and_push.yml`), closing
-      [#15](https://github.com/LahaLuhem/linterpol/issues/15). Not yet exercised: no tag pushed.
-- [ ] **Cut `1.0.0`** (outward-facing, so confirm-first): dispatch Release with `bump: major`
-      (`dry_run` first), then verify both arches on `1.0.0` for all three images via
-      `docker manifest inspect`. This is also the first publish carrying `container-structure-test`
-      and the **first `linterpol-dotnet` publish** (creates a NEW GHCR package, private by default;
-      its matrix leg, structure spec, `LINTERS.md` section, Renovate coverage, and docs are all in and
-      it builds + self-checks on both arches locally).
-- [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE` off the bare `:latest` digest onto a `1.2.3` tag,
-      so Renovate tracks releases instead of a moving tag's digest.
-- [ ] **Only then** switch `cleanup-packages.yml` to `keep-n-tagged` + prune untagged and drop the age
-      window. Unsafe before consumers repoint: cutting `1.0.0` leaves the old `latest` digest untagged,
-      and the current 30-day window is what still protects a consumer pinning it.
+      [#15](https://github.com/LahaLuhem/linterpol/issues/15).
+- [x] **`1.0.0` published and verified** (2026-07-31): all three packages are OCI indexes with both
+      `linux/amd64` and `linux/arm64`, `1.0.0`/`1.0`/`1`/`latest` resolve to one digest each,
+      `assert_oci_registry.sh` passes, and all three are anonymously pullable. This was also the first
+      `linterpol-dotnet` publish and the first publish carrying `container-structure-test`.
+- [x] **`cleanup-packages.yml` simplified** to `keep-n-tagged: 10` + `delete-untagged`, age window
+      dropped. **Left in `dry-run: true`**: the first run under the new rules clears the whole
+      pre-1.0.0 untagged backlog, so review one run's output before flipping it to false.
+- [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE` off the bare `:latest` digest onto a `1.0.0` tag
+      (Renovate's `config:best-practices` will keep it as `1.0.0@sha256:…`), so bumps arrive as
+      reviewable PRs instead of a moving tag shifting under CI.

@@ -162,8 +162,7 @@ JVM-language linters (detekt and others) can still follow in the jvm image. Beyo
 the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as I reach
 for them in other repos.
 
-On registry hygiene: releases now carry immutable version tags, so every published digest stays
-anchored by a tag ([#15](https://github.com/LahaLuhem/linterpol/issues/15)). The weekly prune
-([`cleanup-packages.yml`](.github/workflows/cleanup-packages.yml)) still runs its age-window config
-until consumers have moved off bare `:latest` digest pins; after that it collapses to "keep the last
-N tagged".
+On registry hygiene: releases carry immutable version tags, so every published digest stays anchored
+by a tag ([#15](https://github.com/LahaLuhem/linterpol/issues/15)). The weekly prune
+([`cleanup-packages.yml`](.github/workflows/cleanup-packages.yml)) is now just "keep the last 10
+tagged releases, drop the rest", with no age window to guess at.
