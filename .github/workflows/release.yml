@@ -1,0 +1,109 @@
+name: Release
+
+# Cutting a release is the only thing that publishes images: this pushes a bare semver tag (1.2.3)
+# and build_and_push.yml reacts to it. The bump level is your explicit choice, not inferred from
+# commits (APPENDIX.md#versioning-releases). Actions -> Release -> Run workflow -> pick a bump.
+#
+# The tag goes up with the lahaluhem-ci-bot App token, not GITHUB_TOKEN: a GITHUB_TOKEN push never
+# re-triggers workflows, so the build would never fire (same reason as regen-linters.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version to bump
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: Print the next version without tagging or releasing
+        type: boolean
+        default: false
+
+# One release at a time; don't cancel an in-flight one.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      # Main only: a tag off a branch would ship code that isn't on main, and version-increment
+      # suffixes `-pre.<sha>` there. And don't release a red HEAD, since a release publishes
+      # (skipped counts as green; this run's own check is excluded).
+      - name: Pre-flight
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB: ${{ github.job }}
+        run: |
+          if [ "$GITHUB_REF" != 'refs/heads/main' ]; then
+            echo "::error::Releases are cut from main; got $GITHUB_REF."
+            exit 1
+          fi
+          # shellcheck disable=SC2016  # $ENV is jq's own, not a shell expansion
+          bad="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" --paginate \
+            --jq '.check_runs[]
+                  | select(.name != $ENV.JOB)
+                  | select((.conclusion // "pending") | IN("success", "skipped", "neutral") | not)
+                  | "\(.name): \(.status)/\(.conclusion // "pending")"')"
+          if [ -n "$bad" ]; then
+            echo "::error::main at $GITHUB_SHA has checks that are failing or still running:"
+            echo "$bad"
+            exit 1
+          fi
+          echo "main is green at $GITHUB_SHA."
+
+      - name: Mint lahaluhem-ci-bot token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      # scheme=semver keeps `increment` authoritative (commit parsing is gated to
+      # scheme=conventional_commits). release_branch pins the default-branch check that governs the
+      # `-pre` suffix. With no tags yet it seeds 0.0.0, so the first `major` run lands on 1.0.0.
+      - name: Compute the next version
+        id: version
+        uses: reecetech/version-increment@a29aa752dc3b8118a2dc2ed93faf0e95a73a9c7e # 2024.10.1
+        with:
+          scheme: semver
+          increment: ${{ inputs.bump }}
+          release_branch: main
+
+      # The App-token tag push is what triggers build_and_push.yml.
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PREVIOUS: ${{ steps.version.outputs.current-version }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "$BUMP: $PREVIOUS -> $VERSION"
+          if [ "$DRY_RUN" = 'true' ]; then
+            echo 'Dry run; no tag pushed, no release created.'
+            exit 0
+          fi
+          # Numeric prefix is the bot's user id, so the tag links to lahaluhem-ci-bot's avatar.
+          git config user.name  "${APP_SLUG}[bot]"
+          git config user.email "287673903+${APP_SLUG}[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" --title "$VERSION" --generate-notes --verify-tag
