@@ -26,6 +26,7 @@ What each image ships, one row per tool. There are three images:
 | [shellcheck](https://github.com/koalaman/shellcheck) | v0.11.0 | 1 (static) | shell scripts | `koalaman/shellcheck:v0.11.0` |
 | [ruff](https://github.com/astral-sh/ruff) | 0.15.20 | 1 (static) | Python (lint + format) | `ghcr.io/astral-sh/ruff:0.15.20` |
 | [biome](https://github.com/biomejs/biome) | 2.5.1 | 1 (static) | JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | `ghcr.io/biomejs/biome:2.5.1` |
+| [buf](https://github.com/bufbuild/buf) | 1.72.0 | 1 (static) | Protocol Buffers | `bufbuild/buf:1.72.0` |
 | [container-structure-test](https://github.com/GoogleContainerTools/container-structure-test) | v1.22.1 | 2 | container image structure & metadata | n/a |
 | [swiftlint](https://github.com/realm/SwiftLint) | 0.65.0 | 2 | Swift | n/a |
 | [rumdl](https://github.com/rvben/rumdl) | v0.2.26 | 2 | Markdown | n/a |
