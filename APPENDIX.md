@@ -14,7 +14,8 @@
 - [Multi-arch via a single-job buildx build](#single-job-buildx)
 - [The build script: shell with variant args, not bake (yet)](#build-script)
 - [Reproducibility: digest pins + Renovate](#reproducibility-renovate)
-- [Publishing is gated to `main` and manual dispatch](#publish-gating)
+- [Versioned releases: only a tag publishes](#versioning-releases)
+- [OCI media types, labels, and annotations](#oci-metadata)
 
 <!-- TOC end -->
 
@@ -423,15 +424,52 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 
 ---
 
-<a id="publish-gating"></a>
-## Publishing is gated to `main` and manual dispatch
+<a id="versioning-releases"></a>
+## Versioned releases: only a tag publishes
 
-- **Publish on `main` pushes and `workflow_dispatch`; pull requests build-validate without
-  pushing.** The consumer tag (`:latest`) is shared, so gating publishing keeps every branch from
-  clobbering it, while PRs still validate both arches and a deliberate manual dispatch can
-  publish/verify a branch.
+- **Decision:** a bare semver git tag (`1.2.3`) is the only thing that publishes, and it publishes
+  `1.2.3` + `1.2` + `1` + `latest`. Main pushes and pull requests build-validate both arches without
+  pushing. Releases are cut from the **Release** workflow (`workflow_dispatch`, bump level
+  `patch`/`minor`/`major`), which pushes the tag that `build_and_push.yml` reacts to.
+- **What it fixes.** Publishing only a mutable `:latest` left the previous index *untagged* the
+  moment it was replaced. Registry cleanup can only protect digests a tag still references, never a
+  consumer's sha-pin, so `cleanup-packages.yml` had to guess a safe age window (30 days) plus a keep
+  count. With a version tag on every published digest, cleanup is just "keep the last N tagged", and
+  consumers pin a ref that stays. super-linter and MegaLinter ship immutable version tags for the
+  same reason; a `:latest`-only rolling image was the outlier. See
+  [#15](https://github.com/LahaLuhem/linterpol/issues/15).
+- **Bump policy**, since semver on a tools image needs a stated meaning:
+  - **major:** a consumer-visible break. A tool removed, the `/work` or non-root `lint` contract
+    changed, an image renamed, or a bundled tool's own breaking major that changes CLI or config
+    expectations.
+  - **minor:** a tool added, a new variant image published, a notable tool feature bump.
+  - **patch:** tool and base-image version bumps (most of Renovate's traffic), build internals, docs.
+- **Bare `1.2.3`, no `v`.** Git tag and image tag are one string, so there's nothing to map between
+  what you tagged and what you pull. `metadata-action` strips a leading `v` from `type=semver`
+  anyway, so keeping the prefix would have *created* the mismatch.
+- **`latest` is never configured.** The default `flavor: latest=auto` emits it for version-based
+  tags only, so it follows releases and can't land on a branch or PR build.
+- **Why an explicit bump input, not conventional-commit inference.** `release-please` and the
+  commit-driven tag actions derive the level from commits since the last tag. Here most
+  publish-worthy churn is Renovate's `chore(deps):` tool bumps, which those tools treat as *not
+  releasable*, so the repo would sit un-republished until hand-held regardless. The level is also a
+  judgement about consumer impact that a commit prefix can't carry.
+- **Why `reecetech/version-increment`.** Under `scheme: semver` its `increment` input is
+  authoritative; the commit parsing is gated behind `scheme: conventional_commits`. The alternatives
+  (`mathieudutour/github-tag-action`, `ietf-tools/semver-action`, `anothrNick/github-tag-action`)
+  treat the manual level as a *fallback* behind inference, which would silently override the dispatch
+  input. It also seeds `0.0.0` when no tag exists, so the first `major` run lands on `1.0.0`, and it
+  doesn't push the tag itself, which is what lets the workflow own the token.
+- **The tag is pushed with the App token, not `GITHUB_TOKEN`.** A `GITHUB_TOKEN` push never
+  re-triggers workflows, so the build would never fire. Same lahaluhem-ci-bot token, same reason, as
+  `regen-linters.yml`.
+- **GHCR cannot enforce tag immutability**, unlike most registries
+  ([no such feature](https://github.com/orgs/community/discussions/181783)). So `1.2.3` is immutable
+  by convention here, not by guarantee. The moving `1.2` and `1` tags are deliberately mutable and
+  never orphan a digest, because its exact `1.2.3` still anchors it.
 - **Verification:** a publish is only "done" once `docker manifest inspect <ref>` shows both
-  `linux/amd64` and `linux/arm64`. Never report success without it.
+  `linux/amd64` and `linux/arm64`. Never report success without it. `build_and_push.yml` additionally
+  asserts that `latest` resolves to the digest it just published.
 
 ---
 

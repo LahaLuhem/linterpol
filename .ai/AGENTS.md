@@ -51,7 +51,11 @@ Full list: [`LINTERS.md`](./LINTERS.md).
   vs downloaded-binary / package-manager tools (Lane 2), orthogonal to the variant axis. See
   [`LINTERS.md`](./LINTERS.md) and [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture).
 - **GitHub Actions** — `.github/workflows/`: `test.yml` self-test, `build_and_push.yml` publish,
-  `regen-linters.yml` LINTERS.md regen (any Dockerfile change).
+  `release.yml` manual semver bump + tag, `regen-linters.yml` LINTERS.md regen (any Dockerfile
+  change), `cleanup-packages.yml` weekly GHCR prune.
+- **Semver releases** — a bare `1.2.3` git tag is the only thing that publishes; `release.yml` cuts
+  it from a `workflow_dispatch` bump level. See
+  [`APPENDIX.md#versioning-releases`](./APPENDIX.md#versioning-releases).
 - **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
 - **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
   and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
@@ -83,8 +87,10 @@ linterpol/
 │   ├── renovate.jsonc      config:best-practices + a custom manager for c-s-t; weekly
 │   └── workflows/
 │       ├── test.yml             self-test / dogfood (structure test + lint + LINTERS.md drift check)
-│       ├── build_and_push.yml   single-job multi-arch publish (gated)
-│       └── regen-linters.yml    regenerate LINTERS.md on any Dockerfile change
+│       ├── build_and_push.yml   single-job multi-arch publish (version tags only)
+│       ├── release.yml          manual bump (patch|minor|major) -> pushes the semver tag
+│       ├── regen-linters.yml    regenerate LINTERS.md on any Dockerfile change
+│       └── cleanup-packages.yml weekly GHCR prune of old versions
 └── .ai/                    AGENTS.md + CLAUDE.md (symlinked at root, gitignored)
 ```
 
@@ -127,9 +133,14 @@ hypothetical futures.
    version lives in an `ARG <NAME>_VERSION`). Don't hand-edit a digest or those versions except when
    adding/removing a tool; **Renovate owns the bumps**. See
    [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
-6. **Publishing is outward-facing, so confirm-first**, and gated to `main` pushes + manual
-   `workflow_dispatch`; pull requests build-validate without pushing. See
-   [`APPENDIX.md#publish-gating`](./APPENDIX.md#publish-gating).
+6. **Publishing is outward-facing, so confirm-first**, and gated to **version tags**: a bare semver
+   tag (`1.2.3`) publishes `1.2.3` + `1.2` + `1` + `latest`, while `main` pushes and pull requests
+   build-validate both arches without pushing. Cut a release from the **Release** workflow
+   (`workflow_dispatch`, bump level `patch`/`minor`/`major`); never hand-push a version tag. Pick the
+   level by consumer impact: **major** for a break (tool removed, `/work` or non-root `lint` contract
+   changed, image renamed, a tool's own breaking major), **minor** for a tool added or a new variant,
+   **patch** for tool/base-image bumps, build internals, and docs. See
+   [`APPENDIX.md#versioning-releases`](./APPENDIX.md#versioning-releases).
 7. **Verify versions/digests against registries before pinning** — never from memory.
 8. **Never claim a multi-arch publish succeeded** without `docker manifest inspect <ref>` showing
    **both** `linux/amd64` and `linux/arm64`.
@@ -148,10 +159,14 @@ hypothetical futures.
    `tests/image-structure*.yaml` specs, runs `gen-linters.sh --check` for `LINTERS.md` drift, and
    asserts the lean image's OCI media types. `test.yml` just calls its targets as separate steps
    (behind a CI-only gate that skips commits already tested on their PR).
-3. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol`, `linterpol-jvm`, and
-   `linterpol-dotnet`, gated to `main` + dispatch; PRs build-validate both arches.
-4. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
-5. On any Dockerfile change (a Renovate or manual PR, or a push to `main`), `regen-linters.yml`
+3. `release.yml` (manual dispatch, bump level) pushes a bare `1.2.3` tag with the App token, and that
+   push is what triggers a publish. It pre-flights first: main only, and no failing or in-flight
+   checks on HEAD.
+4. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol`, `linterpol-jvm`, and
+   `linterpol-dotnet` as `1.2.3` + `1.2` + `1` + `latest`. Version tags only; `main` pushes and PRs
+   build-validate both arches without pushing.
+5. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
+6. On any Dockerfile change (a Renovate or manual PR, or a push to `main`), `regen-linters.yml`
    regenerates `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s
    drift check clears automatically. (Don't commit `LINTERS.md` by hand; CI owns it.)
 
@@ -187,7 +202,7 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
   every tool add. Enumerate tools where it helps, or use count-free phrasing; the generated
   `LINTERS.md` is the canonical list.
 
-## Status & remaining polish (as of 2026-06-28; prune as done)
+## Status & remaining polish (as of 2026-07-31; prune as done)
 
 The image (now including container-structure-test), `scripts/build.sh`, digest pins, and Renovate
 are in place and verified. To finish the standalone setup:
@@ -198,18 +213,23 @@ are in place and verified. To finish the standalone setup:
 - [x] **`LICENSE` added** (MIT, matching chrysalis).
 - [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
       `./scripts/gen-linters.sh --check`).
-- [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to main + dispatch.
+- [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to version tags.
 - [x] **`container-structure-test` added** (Lane-2 downloaded binary; both arches verified, in
       `LINTERS.md`).
 - [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `regen-linters.yml`; tracks the
       `FROM`s, action SHAs, and the c-s-t version).
 - [x] **First GHCR publish** done and verified: `ghcr.io/lahaluhem/linterpol:latest` is a multi-arch
       manifest (linux/amd64 + linux/arm64), and chrysalis pins a digest of it.
-- [ ] **Republish with `container-structure-test`** (outward-facing, so confirm-first), then verify
-      both arches via `docker manifest inspect`.
-- [ ] Back in chrysalis: bump the pinned `linterpol` digest to the c-s-t-carrying image (Renovate
-      handles this once it's republished).
-- [ ] **First `linterpol-dotnet` publish** (outward-facing, so confirm-first; creates a NEW GHCR
-      package, private by default). The matrix leg, structure spec, `LINTERS.md` section, Renovate
-      coverage, and docs are in, and the image builds + self-checks on both arches locally, but it has
-      NOT been published yet.
+- [x] **Semver releases** (`release.yml` + tag-gated `build_and_push.yml`), closing
+      [#15](https://github.com/LahaLuhem/linterpol/issues/15). Not yet exercised: no tag pushed.
+- [ ] **Cut `1.0.0`** (outward-facing, so confirm-first): dispatch Release with `bump: major`
+      (`dry_run` first), then verify both arches on `1.0.0` for all three images via
+      `docker manifest inspect`. This is also the first publish carrying `container-structure-test`
+      and the **first `linterpol-dotnet` publish** (creates a NEW GHCR package, private by default;
+      its matrix leg, structure spec, `LINTERS.md` section, Renovate coverage, and docs are all in and
+      it builds + self-checks on both arches locally).
+- [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE` off the bare `:latest` digest onto a `1.2.3` tag,
+      so Renovate tracks releases instead of a moving tag's digest.
+- [ ] **Only then** switch `cleanup-packages.yml` to `keep-n-tagged` + prune untagged and drop the age
+      window. Unsafe before consumers repoint: cutting `1.0.0` leaves the old `latest` digest untagged,
+      and the current 30-day window is what still protects a consumer pinning it.

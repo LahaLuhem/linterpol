@@ -9,9 +9,9 @@ Claude-Code-specific guidance. Project facts, stack, repo layout, and hard rules
 You're assisting with **Linterpol**: a repo whose job is to **build and publish** one small,
 multi-arch (`amd64` + `arm64`) Docker image bundling CI lint/check tools, to
 `ghcr.io/lahaluhem`, for reuse across the author's repos. *How or where the image is consumed is
-out of scope.* The image is published (multi-arch) at `ghcr.io/lahaluhem/linterpol:latest`; a
-republish is needed whenever the tool set changes. Treat the user as technical and direct.
-Published images are outward-facing, so publishing is a confirm-first action.
+out of scope.* Images publish only on a bare semver tag (`1.2.3` + `1.2` + `1` + `latest`), cut from
+the **Release** workflow; a release is needed whenever the tool set changes. Treat the user as
+technical and direct. Published images are outward-facing, so releasing is a confirm-first action.
 
 ## Communication
 
@@ -62,7 +62,8 @@ what you did NOT.
 - **`actionlint` clean** on any touched workflow.
 - **The image builds** for the affected arch(es) and `scripts/build.sh`'s self-check passes.
 - **A publish is "done" only when `docker manifest inspect <ref>` shows BOTH `linux/amd64` and
-  `linux/arm64`.** Never claim a multi-arch publish otherwise.
+  `linux/arm64`.** Never claim a multi-arch publish otherwise. For a release, check the **version**
+  tag (that's what consumers pin) and that `latest` resolves to the same digest.
 - Report outcomes faithfully: if CI hasn't run or you couldn't verify, say so.
 
 ## Auto-memory conventions for this project
@@ -77,8 +78,10 @@ what you did NOT.
 
 ## Forbidden / confirm-first actions
 
-- **Publishing the image** — anything that pushes to `ghcr.io/lahaluhem`, including a
-  `workflow_dispatch` publish on a branch — is **confirm-first** (outward-facing).
+- **Publishing the image** — anything that pushes to `ghcr.io/lahaluhem` is **confirm-first**
+  (outward-facing). That now means **cutting a release**: dispatching `release.yml`, or pushing a
+  version tag, since the tag is what triggers the publish. Pushing a tag by hand is off-limits
+  regardless; releases go through the workflow.
 - **Any git mutation** — see *VCS* above.
 - **Hand-editing pinned digests in the `images/*/Dockerfile`s** (or a downloaded-binary
   `ARG <NAME>_VERSION` pin) — that's Renovate's job, except when you're adding or removing a tool.

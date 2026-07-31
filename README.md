@@ -25,7 +25,8 @@ docker pull ghcr.io/lahaluhem/linterpol-dotnet:latest
 ```
 
 All three publish to GHCR as OCI images for `linux/amd64` and `linux/arm64`, so they run native on
-Apple Silicon and on the usual x86 CI runners.
+Apple Silicon and on the usual x86 CI runners. In CI, pin a version rather than `latest` (see
+[Versions](#versions)).
 
 ## What's inside
 
@@ -86,6 +87,34 @@ rather than analysing files, so point it at a repo that's a shellspec project (o
 `.shellspec`). It honours the read-only mount, writing its temp to `/tmp`; code coverage needs
 `kcov` and is out of scope for these images.
 
+## Versions
+
+Every release publishes four tags per image, all pointing at the same multi-arch index:
+
+| Tag | Moves? | Reach for it when |
+|---|---|---|
+| `1.2.3` | never | you're in CI. Pin this, or its digest, and nothing shifts under you. |
+| `1.2` | on each patch | you want to track a minor line |
+| `1` | on each minor or patch | you want to track a major line |
+| `latest` | every release | you're trying things out locally |
+
+Only a release publishes. Pushes to `main` build-validate both arches without pushing anything, so
+`latest` means "latest release", not "tip of main".
+
+What the levels mean here:
+
+- **major**: something consumer-visible broke. A tool removed, the `/work` or non-root `lint`
+  contract changed, an image renamed, or a bundled tool's own breaking major.
+- **minor**: a tool added, or a new variant image.
+- **patch**: tool and base-image version bumps, build internals, docs.
+
+Releases are cut by hand from the **Release** workflow (Actions → Release → Run workflow), picking
+the bump level. Why it works this way, including why the level isn't inferred from commit messages,
+is in [APPENDIX.md#versioning-releases](./APPENDIX.md#versioning-releases).
+
+> GHCR can't enforce tag immutability, so `1.2.3` is immutable by convention here rather than by
+> guarantee. Pin the digest if you want the stronger promise.
+
 ## Build it yourself
 
 You don't need to, but if you want the image from source:
@@ -133,7 +162,8 @@ JVM-language linters (detekt and others) can still follow in the jvm image. Beyo
 the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as I reach
 for them in other repos.
 
-On registry hygiene: a weekly job prunes old untagged image versions
-([`cleanup-packages.yml`](.github/workflows/cleanup-packages.yml)). The planned upgrade is immutable
-per-build tags, so consumers pin a retained tag instead of a `:latest` digest and cleanup needs no
-age window ([#15](https://github.com/LahaLuhem/linterpol/issues/15)).
+On registry hygiene: releases now carry immutable version tags, so every published digest stays
+anchored by a tag ([#15](https://github.com/LahaLuhem/linterpol/issues/15)). The weekly prune
+([`cleanup-packages.yml`](.github/workflows/cleanup-packages.yml)) still runs its age-window config
+until consumers have moved off bare `:latest` digest pins; after that it collapses to "keep the last
+N tagged".
