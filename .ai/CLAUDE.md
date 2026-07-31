@@ -71,8 +71,7 @@ what you did NOT.
 - **`project`** — scope/constraints the user states aloud (the final name once chosen, the publish
   decision). Convert relative dates to absolute.
 - **`feedback`** — corrections and validated non-obvious choices, with **Why** + **How to apply**.
-- **`reference`** — external pointers (the GHCR package page, upstream tool repos, the consuming
-  repos such as chrysalis).
+- **`reference`** — external pointers (the GHCR package page, upstream tool repos, consumer repos).
 - **Don't save** what the repo records (the Dockerfile shape, `LINTERS.md`, the lane pattern); re-
   derive it. Verify a named file/flag still exists before acting on a memory.
 

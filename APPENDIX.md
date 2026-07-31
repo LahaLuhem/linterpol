@@ -41,8 +41,7 @@ sections here by anchor (e.g. `APPENDIX.md#two-lane-architecture`).
   ln -s .ai/CLAUDE.md CLAUDE.md
   ```
 
-  A real file at the root works too; the `.ai/` copies stay the default. (Same pattern as the
-  chrysalis repo this was modeled on.)
+  A real file at the root works too; the `.ai/` copies stay the default.
 
 ---
 
@@ -352,14 +351,13 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 ## Multi-arch via a single-job buildx build
 
 - **Decision:** publish with a single `docker buildx build --platform linux/amd64,linux/arm64
-  --push`, not a native-runner matrix with push-by-digest + manifest merge (which is what the
-  chrysalis repo uses).
-- **Why it differs from chrysalis:** chrysalis compiles Flutter/Android natively, where emulating
-  the non-host arch under QEMU is slow, so a native matrix earns its complexity. This image
-  **compiles nothing**: each platform's build just lands that platform's prebuilt binary (a
-  `COPY --from` of the upstream image for Lane 1, a download-and-verify stage for Lane 2). The only
-  steps that execute in the target rootfs are the `container-structure-test` checksum-verify and a
-  one-line `useradd`, both trivial, so the QEMU penalty is negligible and the simpler single job wins.
+  --push`, not a native-runner matrix with push-by-digest + manifest merge.
+- **Why not the native-runner matrix.** That shape earns its complexity when a build compiles
+  natively per arch, since emulating the non-host arch under QEMU is slow. This image **compiles
+  nothing**: each platform's build just lands that platform's prebuilt binary (a `COPY --from` of the
+  upstream image for Lane 1, a download-and-verify stage for Lane 2). The only steps that execute in
+  the target rootfs are the `container-structure-test` checksum-verify and a one-line `useradd`, both
+  trivial, so the QEMU penalty is negligible and the simpler single job wins.
 
 ---
 
@@ -412,8 +410,8 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   Adding `container-structure-test` broke that premise: a binary downloaded from a GitHub release is
   **not** a `FROM` ref, and Dependabot has no generic mechanism to track it. Renovate does, via a
   `custom.regex` manager keyed on the `# renovate:` marker above the ARG. Rather than run two bots,
-  the repo moved wholesale to Renovate, which also matches **chrysalis** (the main consumer already
-  runs Renovate, so it's one tool and one already-authorized Mend app across both repos). The config
+  the repo moved wholesale to Renovate, which also matches this repo's downstream consumers (already
+  running Renovate, so it's one tool and one already-authorized Mend app across repos). The config
   `.github/renovate.jsonc` extends `config:best-practices` (digest-pins Docker, SHA-pins Actions) on
   a weekly schedule, plus the one custom manager for the binary. Grouping is left to the preset's
   defaults; the old Dependabot `update-types`-filter juggling for digest-only bumps is gone.
@@ -438,12 +436,19 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   consumers pin a ref that stays. super-linter and MegaLinter ship immutable version tags for the
   same reason; a `:latest`-only rolling image was the outlier. See
   [#15](https://github.com/LahaLuhem/linterpol/issues/15).
-- **Bump policy**, since semver on a tools image needs a stated meaning:
-  - **major:** a consumer-visible break. A tool removed, the `/work` or non-root `lint` contract
-    changed, an image renamed, or a bundled tool's own breaking major that changes CLI or config
-    expectations.
-  - **minor:** a tool added, a new variant image published, a notable tool feature bump.
-  - **patch:** tool and base-image version bumps (most of Renovate's traffic), build internals, docs.
+- **Bump policy lives in the README** ([What a bump level means](./README.md#what-a-bump-level-means)),
+  since it's the thing consumers need. It isn't restated here: three copies of a boundary table drift.
+- **What the levels are versioning.** They track **this image's interface** (which images exist, which
+  tools are on `PATH`, the non-root `lint` + `/work` + no-entrypoint + both-arches contract), *not*
+  whether a given repo still lints clean. It can't be the latter: any tool bump, down to a patch, can
+  add a rule that flags code which passed yesterday, so no level could honestly promise "your build
+  still goes green". Promising interface stability is a claim we can actually keep.
+- **Why a bundled tool's own major is only a `minor`.** It's the one boundary that looks wrong at
+  first glance. ktlint 1.x → 2.x can absolutely fail a consumer's build, but it changes nothing about
+  how the image is invoked, and upstream majors land often enough (Renovate raises them routinely)
+  that treating each as a `major` here would burn the level on upstream churn and leave no signal for
+  an actual contract break. `minor` is the honest slot: the tool set moved in a way worth noticing,
+  the interface did not.
 - **Bare `1.2.3`, no `v`.** Git tag and image tag are one string, so there's nothing to map between
   what you tagged and what you pull. `metadata-action` strips a leading `v` from `type=semver`
   anyway, so keeping the prefix would have *created* the mismatch.

@@ -136,10 +136,13 @@ hypothetical futures.
 6. **Publishing is outward-facing, so confirm-first**, and gated to **version tags**: a bare semver
    tag (`1.2.3`) publishes `1.2.3` + `1.2` + `1` + `latest`, while `main` pushes and pull requests
    build-validate both arches without pushing. Cut a release from the **Release** workflow
-   (`workflow_dispatch`, bump level `patch`/`minor`/`major`); never hand-push a version tag. Pick the
-   level by consumer impact: **major** for a break (tool removed, `/work` or non-root `lint` contract
-   changed, image renamed, a tool's own breaking major), **minor** for a tool added or a new variant,
-   **patch** for tool/base-image bumps, build internals, and docs. See
+   (`workflow_dispatch`, bump level `patch`/`minor`/`major`); never hand-push a version tag. The levels
+   version **this image's interface**, not whether a repo still lints clean: **major** only when an
+   existing `docker run` breaks (tool removed, `/work` or non-root `lint` contract changed, image
+   renamed, arch dropped), **minor** when it grows or a tool's rules shift (tool added, new variant,
+   **a bundled tool's own major bump**), **patch** for tool patch/minor bumps, base-image digests,
+   build internals, and docs. Canonical table:
+   [`README.md#what-a-bump-level-means`](./README.md#what-a-bump-level-means); rationale:
    [`APPENDIX.md#versioning-releases`](./APPENDIX.md#versioning-releases).
 7. **Verify versions/digests against registries before pinning** — never from memory.
 8. **Never claim a multi-arch publish succeeded** without `docker manifest inspect <ref>` showing
@@ -208,9 +211,9 @@ The image (now including container-structure-test), `scripts/build.sh`, digest p
 are in place and verified. To finish the standalone setup:
 
 - [x] **Pick the final name** (`Linterpol`); renamed across the image `LABEL`s, `README`, the
-      local tag, and chrysalis's `LINTERPOL_IMAGE` default.
+      local tag, and consumer repos' image-ref defaults.
 - [x] **`README.md` finalized** (usage, architecture, roadmap).
-- [x] **`LICENSE` added** (MIT, matching chrysalis).
+- [x] **`LICENSE` added** (MIT).
 - [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
       `./scripts/gen-linters.sh --check`).
 - [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to version tags.
@@ -219,7 +222,7 @@ are in place and verified. To finish the standalone setup:
 - [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `regen-linters.yml`; tracks the
       `FROM`s, action SHAs, and the c-s-t version).
 - [x] **First GHCR publish** done and verified: `ghcr.io/lahaluhem/linterpol:latest` is a multi-arch
-      manifest (linux/amd64 + linux/arm64), and chrysalis pins a digest of it.
+      manifest (linux/amd64 + linux/arm64), and downstream consumers pin a digest of it.
 - [x] **Semver releases** (`release.yml` + tag-gated `build_and_push.yml`), closing
       [#15](https://github.com/LahaLuhem/linterpol/issues/15).
 - [x] **`1.0.0` published and verified** (2026-07-31): all three packages are OCI indexes with both
@@ -229,6 +232,6 @@ are in place and verified. To finish the standalone setup:
 - [x] **`cleanup-packages.yml` simplified** to `keep-n-tagged: 10` + `delete-untagged`, age window
       dropped. **Left in `dry-run: true`**: the first run under the new rules clears the whole
       pre-1.0.0 untagged backlog, so review one run's output before flipping it to false.
-- [ ] Back in chrysalis: repoint `LINTERPOL_IMAGE` off the bare `:latest` digest onto a `1.0.0` tag
-      (Renovate's `config:best-practices` will keep it as `1.0.0@sha256:…`), so bumps arrive as
-      reviewable PRs instead of a moving tag shifting under CI.
+- [ ] In downstream consumers: repoint the `LINTERPOL_IMAGE`-equivalent off a bare `:latest` digest
+      onto a `1.0.0` tag (Renovate's `config:best-practices` will keep it as `1.0.0@sha256:…`), so
+      bumps arrive as reviewable PRs instead of a moving tag shifting under CI.

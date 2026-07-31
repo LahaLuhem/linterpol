@@ -101,12 +101,24 @@ Every release publishes four tags per image, all pointing at the same multi-arch
 Only a release publishes. Pushes to `main` build-validate both arches without pushing anything, so
 `latest` means "latest release", not "tip of main".
 
-What the levels mean here:
+### What a bump level means
 
-- **major**: something consumer-visible broke. A tool removed, the `/work` or non-root `lint`
-  contract changed, an image renamed, or a bundled tool's own breaking major.
-- **minor**: a tool added, or a new variant image.
-- **patch**: tool and base-image version bumps, build internals, docs.
+The levels describe what happened to **this image's interface**: which images exist, which tools are
+on `PATH`, and the runtime contract (non-root `lint`, `/work`, no entrypoint, both arches).
+
+| Bump | The interface | Typical triggers |
+|---|---|---|
+| **major** | **breaks.** Your existing `docker run` needs changing. | a tool removed or replaced; an image renamed or dropped; the `/work` or non-root `lint` contract changed; an entrypoint added; an arch dropped |
+| **minor** | **grows**, or a tool's own rules shift under you. | a tool added; a new variant image; an arch added; a bundled tool's own **major** bump (stricter defaults, renamed config keys) |
+| **patch** | **unchanged.** | tool patch and minor bumps (most of Renovate's traffic); base-image digest bumps; build internals; docs |
+
+> **No level promises your lint run still passes.** Even a patch can carry a rule addition that flags
+> code which was clean yesterday. That's the nature of bundling linters: what the levels promise is
+> that on a patch or minor, your existing `docker run …` invocation keeps working unchanged.
+
+That's why a bundled tool's own major bump is only a **minor** here. ktlint 1.x → 2.x may fail your
+build with stricter rules, but it doesn't change how you invoke this image, and upstream majors are
+frequent enough that spending our major on them would leave nothing to signal a real contract break.
 
 Releases are cut by hand from the **Release** workflow (Actions → Release → Run workflow), picking
 the bump level. Why it works this way, including why the level isn't inferred from commit messages,

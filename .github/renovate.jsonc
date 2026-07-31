@@ -1,5 +1,5 @@
 // Renovate config for Linterpol.
-// .jsonc (JSON-with-comments), like chrysalis: Renovate recommends it for commented configs
+// .jsonc (JSON-with-comments): Renovate recommends it for commented configs
 // and editors validate it against the schema below natively.
 // Options reference: https://docs.renovatebot.com/configuration-options/
 {

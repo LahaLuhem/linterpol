@@ -1,6 +1,6 @@
 # container-structure-test spec, run by test.yml against the freshly built image with the tar
 # driver (no Docker socket needed). It dogfoods the bundled container-structure-test and locks the
-# invocation contract chrysalis relies on: every tool sits on PATH under /usr/local/bin, the image
+# invocation contract consumers rely on: every tool sits on PATH under /usr/local/bin, the image
 # runs as the non-root `lint` user from /work, and there is NO entrypoint wrapper (so
 # `docker run <img> <tool> <args>` works). The tar driver can't execute commands, so "do the tools
 # actually run" is covered separately by test.yml's lint steps and the image's own self-check CMD.
