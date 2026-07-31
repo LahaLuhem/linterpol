@@ -90,11 +90,19 @@ else, so a missing dependency looks like a clean-ish failure rather than a lint 
 types (`google/protobuf/*`) are built in; anything else has to be vendored in the tree or resolved
 through a `buf.lock`.
 
-### `container-structure-test` and `shellspec`
+### `container-structure-test`: inspects an image, not your checkout
 
-Neither reads your checkout the way a linter does, so both want a different invocation:
-`container-structure-test` inspects a built image (Docker socket or `--driver tar`), and `shellspec`
-runs a `spec/` suite. Both are covered in [README.md#use](./README.md#use).
+It's the odd one out: it tests a built image rather than files in your checkout, so instead of a
+`:ro` source mount it needs the Docker socket mounted, or an image tarball via `--driver tar`. See
+the [upstream docs](https://github.com/GoogleContainerTools/container-structure-test) for the spec
+format and drivers.
+
+### `shellspec`: runs a suite, not a linter
+
+The other tool that isn't a linter: it runs your shell `spec/` suite (BDD tests) rather than
+analysing files, so point it at a repo that is a shellspec project (one with a `.shellspec`). It
+honours the read-only mount, writing its temp to `/tmp`. Code coverage needs `kcov` and is out of
+scope for these images.
 
 ## Adding a linter
 
