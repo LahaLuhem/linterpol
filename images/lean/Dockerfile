@@ -133,6 +133,8 @@ RUN set -eux; \
     tar -xzf /tmp/shellspec-dist.tar.gz -C /opt; \
     test -x /opt/shellspec/shellspec
 
+# SCRATCH: touches this file so regen-linters.yml fires. Close this PR, don't merge it.
+
 # --- Assembled image ---
 FROM debian:stable-slim@sha256:328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd
 
