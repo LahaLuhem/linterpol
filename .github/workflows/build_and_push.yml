@@ -4,20 +4,22 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
   pull_request:
   workflow_dispatch:
 
 # Matrix of images (lean + jvm + dotnet), each a single-job multi-arch build: the images only land prebuilt
 # per-arch binaries (Lane-1 COPY --from upstreams, Lane-2 downloads done on the build arch), so the
 # sole emulated step per image is a one-line useradd and a native-runner matrix isn't worth it
-# (see APPENDIX.md#single-job-buildx). Publish only on main pushes or a manual run; pull requests
-# build-validate both arches without pushing. The :latest tags are shared, so gating pushes keeps
-# branches from clobbering them. Verify a branch without merging:
+# (see APPENDIX.md#single-job-buildx).
+#
+# Only a version tag publishes (APPENDIX.md#versioning-releases); main pushes and PRs build-validate
+# both arches without pushing. Validate a branch without merging:
 #   gh workflow run build_and_push.yml --ref <branch>
 
-# Serialize whole publish runs per ref so concurrent runs don't race on the shared :latest tags.
-# (The matrix legs push different tags, so they run in parallel within a run.) Don't cancel an
-# in-flight publish.
+# Serialize publish runs per ref so they don't race on the moving tags (`latest`, `1`, `1.2`). Matrix
+# legs push different images, so they still run in parallel. Don't cancel an in-flight publish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -51,7 +53,8 @@ jobs:
             title: Linterpol .NET
             description: ".NET-stack CI lint tools."
     env:
-      PUBLISH: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
+      # Tag refs publish (push or `gh workflow run … --ref 1.2.3`); branch refs build-validate.
+      PUBLISH: ${{ github.ref_type == 'tag' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -80,12 +83,19 @@ jobs:
       # context. This is the single source of truth for image metadata; the Dockerfiles carry no
       # LABELs. title/description are curated per variant (the matrix); source/revision/created/
       # version/licenses fill in automatically from the repo and the build commit.
+      # Tag `1.2.3` publishes 1.2.3 + 1.2 + 1 + latest; `latest` comes free from the default
+      # `flavor: latest=auto`. The `ref` entries only name non-publishing builds (`main`, `pr-42`).
       - name: Docker metadata (tags, labels, annotations)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ matrix.image }}
-          tags: type=raw,value=latest
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=branch
+            type=ref,event=pr
           labels: |
             org.opencontainers.image.title=${{ matrix.title }}
             org.opencontainers.image.description=${{ matrix.description }}
@@ -111,7 +121,8 @@ jobs:
 
       # A publish is only "done" when the pushed image carries both arches (hard rule 8) and uses
       # OCI media types end to end. assert_oci_registry.sh checks the index, both arches, and every
-      # manifest/config/layer; crane then validates the image is well-formed and pullable.
+      # manifest/config/layer; crane then validates the image is well-formed and pullable. Both target
+      # the version tag (what consumers pin); the digest match proves `latest` moved onto this release.
       - name: Install crane
         if: env.PUBLISH == 'true'
         uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
@@ -120,6 +131,14 @@ jobs:
         if: env.PUBLISH == 'true'
         env:
           IMAGE: ${{ matrix.image }}
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          ./scripts/assert_oci_registry.sh "$IMAGE:latest"
-          crane validate --remote "$IMAGE:latest"
+          ./scripts/assert_oci_registry.sh "$IMAGE:$VERSION"
+          crane validate --remote "$IMAGE:$VERSION"
+          released="$(crane digest "$IMAGE:$VERSION")"
+          latest="$(crane digest "$IMAGE:latest")"
+          if [ "$released" != "$latest" ]; then
+            echo "FAIL: $IMAGE:latest is $latest, expected the $VERSION digest $released" >&2
+            exit 1
+          fi
+          echo "OK: $IMAGE:$VERSION and :latest both resolve to $released"

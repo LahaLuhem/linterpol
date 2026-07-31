@@ -177,6 +177,12 @@ The surface is small (one Dockerfile, a couple of shell scripts, soon some workf
   before calling it done (`test.yml` lints all YAML with it, per `.ryl.toml`), since `actionlint`
   alone doesn't catch everything `ryl` does.
 - **Bash:** `set -euo pipefail`; quote expansions.
+- **Comments: one or two lines, not a thesis.** Comment the *why* and the surprising; skip what the
+  line already says. A point needing a paragraph is rationale, so it belongs in `APPENDIX.md` behind
+  an anchor with a one-line pointer here. Applies to YAML, Dockerfiles, and shell alike. **Why:** a
+  wall-of-text comment block buries the one line that mattered, and it rots faster than the code.
+  **How to apply:** when you edit near a comment that has outgrown its point, trim it in the same
+  pass.
 - **Docs:** don't hardcode a tool *count* in prose (e.g. "the lean image's nine"); it churns on
   every tool add. Enumerate tools where it helps, or use count-free phrasing; the generated
   `LINTERS.md` is the canonical list.
