@@ -12,7 +12,7 @@
 # portable IL, so install once on $BUILDPLATFORM with the SDK and run the DLL through a `dotnet`
 # wrapper instead of the shim. Integrity is the package signature plus a version assert. See
 # APPENDIX#dotnet-variant.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:ea8bde36c11b6e7eec2656d0e59101d4462f6bd630730f2c8201ed0572b295d5 AS csharpier-dl
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:e1fc6e423f543119c406d24e2e687d67c569f18f04a37a8b0005d80ad0dcee80 AS csharpier-dl
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
 # linter: tool: csharpier | lane: 2 | lints: C# | repo: https://github.com/belav/csharpier
@@ -26,7 +26,7 @@ RUN set -eux; \
     chmod 0755 /usr/local/bin/csharpier
 
 # --- Assembled image ---
-FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:6a40d375e9c8432fcf4adebae05d7e0a276e9a90dd01174df6709a090771bebc
+FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:acad02eb5c4fbf57d15296f9c08d56cd4036e915bdae5b4dd48a06523d452617
 
 # The portable-IL payload plus the wrapper that runs it through the dotnet host, both from above.
 COPY --from=csharpier-dl /opt/csharpier             /opt/csharpier
