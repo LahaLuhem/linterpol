@@ -9,7 +9,7 @@
 # --- Base (multi-arch Temurin JRE, digest-pinned) + ktlint download. ---
 # ktlint is a self-executing fat JAR (pure bytecode), so fetch it once on $BUILDPLATFORM and COPY the
 # one jar in. Its sh preamble defeats `unzip -t`, so integrity is run-it-and-assert. See APPENDIX#jvm-variant.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:25.0.3_9-jre@sha256:7ea65de6187ad8fbcc0ad155950c38664a7371148bb3ccf1ec1e1b286b44ad08 AS ktlint-dl
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25.0.3_9-jre@sha256:a214efa3200af4b657e41935799aa12d7aee3336fdb42eb505a0948f6ecdd983 AS ktlint-dl
 # linter: tool: ktlint | lane: 2 | lints: Kotlin | repo: https://github.com/ktlint/ktlint
 # renovate: datasource=github-releases depName=ktlint/ktlint
 ARG KTLINT_VERSION=1.8.0
@@ -20,7 +20,7 @@ RUN set -eux; \
     grep -qF "ktlint version ${KTLINT_VERSION}" /tmp/ktlint.version
 
 # --- Assembled image ---
-FROM eclipse-temurin:25.0.3_9-jre@sha256:7ea65de6187ad8fbcc0ad155950c38664a7371148bb3ccf1ec1e1b286b44ad08
+FROM eclipse-temurin:25.0.3_9-jre@sha256:a214efa3200af4b657e41935799aa12d7aee3336fdb42eb505a0948f6ecdd983
 
 # Lane 2 downloaded artifact, fetched/verified in the ktlint-dl stage above (arch-independent jar).
 COPY --from=ktlint-dl /usr/local/bin/ktlint /usr/local/bin/ktlint
