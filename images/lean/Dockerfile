@@ -20,7 +20,7 @@ FROM ghcr.io/astral-sh/ruff:0.15.20@sha256:03cc33c3f7f31ba53040fb1f1b8744a03a777
 # biome: added for JSON/JSONC, but it lints+formats JS/TS/CSS/GraphQL too, for free. A plain Lane-1
 # static binary like ruff. See APPENDIX#json-biome.
 # linter: lints: JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | repo: https://github.com/biomejs/biome
-FROM ghcr.io/biomejs/biome:2.5.1@sha256:14977977824e1a38e526083999c28c6cdeb6b120af22b16b3e596d8f5df6ea49 AS biome
+FROM ghcr.io/biomejs/biome:2.5.1@sha256:e1d1e99cd16561f457202ce936ab3cbc9e119ef473dbaf1fbe1777871c593473 AS biome
 # buf: Protobuf lint, with `breaking` and `format` along for the ride. Its git-input baseline needs a
 # git binary, which this image doesn't ship: see LINTERS.md#caveats.
 # linter: lints: Protocol Buffers | repo: https://github.com/bufbuild/buf
