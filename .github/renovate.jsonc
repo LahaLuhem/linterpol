@@ -27,12 +27,10 @@
   ],
   "packageRules": [
     {
-      // Minor and major are deliberately left for review: most bundled tools are pre-1.0, where a
-      // 0.x minor is effectively a major, and a tool's rules shifting is what makes the next release
-      // minor rather than patch (README#what-a-bump-level-means). CI green doesn't prove "no
-      // behaviour change" either, since the dogfood lint only covers this repo's own files.
-      "description": "Automerge digest-only and patch bumps: base-image rebuilds, action re-pins, tool patches.",
-      "matchUpdateTypes": ["digest", "pin", "patch"],
+      // Majors stay manual: they set the next release's bump level (README#what-a-bump-level-means).
+      // A minor can still shift a tool's rules; CI catching that (hadolint 2.15's DL3066) is the bet.
+      "description": "Automerge everything below major: digests, re-pins, tool patches and minors.",
+      "matchUpdateTypes": ["digest", "pin", "patch", "minor"],
       "automerge": true
     },
     {
