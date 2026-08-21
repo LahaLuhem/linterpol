@@ -10,7 +10,7 @@
 # --- Lane 1: static-binary linters, pinned tag@digest (Renovate bumps both; the index digest
 # keeps the pin multi-arch). The `# linter:` line above each FROM feeds LINTERS.md. ---
 # linter: lints: Dockerfiles | repo: https://github.com/hadolint/hadolint
-FROM hadolint/hadolint:v2.14.0-alpine@sha256:7aba693c1442eb31c0b015c129697cb3b6cb7da589d85c7562f9deb435a6657c AS hadolint
+FROM hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1ad7588c8bd1e04f4866b34ad3cac50335198552 AS hadolint
 # linter: lints: GitHub Actions workflows | repo: https://github.com/rhysd/actionlint
 FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 AS actionlint
 # linter: lints: shell scripts | repo: https://github.com/koalaman/shellcheck
