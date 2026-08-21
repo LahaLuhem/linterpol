@@ -80,7 +80,7 @@ jobs:
       # `-pre` suffix. With no tags yet it seeds 0.0.0, so the first `major` run lands on 1.0.0.
       - name: Compute the next version
         id: version
-        uses: reecetech/version-increment@a29aa752dc3b8118a2dc2ed93faf0e95a73a9c7e # 2024.10.1
+        uses: reecetech/version-increment@28d33de033e97a304f77238d6a5db26039ca15d6 # 2026.8.4
         with:
           scheme: semver
           increment: ${{ inputs.bump }}
