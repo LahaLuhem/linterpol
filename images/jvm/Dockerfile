@@ -28,7 +28,7 @@ COPY --from=ktlint-dl /usr/local/bin/ktlint /usr/local/bin/ktlint
 # Non-root user; same run contract as lean (non-root lint, /work, no entrypoint). Tools only read
 # the mount.
 RUN useradd --create-home --uid 10001 lint
-USER lint
+USER 10001
 WORKDIR /work
 
 # Temurin sets a CA-cert-importer ENTRYPOINT that would wrap the tool args; clear it so

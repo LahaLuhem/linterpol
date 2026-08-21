@@ -9,7 +9,7 @@
 schemaVersion: "2.0.0"
 
 metadataTest:
-  user: "lint"
+  user: "10001"
   workdir: "/work"
   entrypoint: []
 

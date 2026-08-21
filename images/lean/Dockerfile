@@ -163,7 +163,8 @@ COPY --from=shellspec-dl /opt/shellspec                          /opt/shellspec
 # non-root user (tools only read the mount). One RUN so the two don't trip hadolint's DL3059.
 RUN ln -s /opt/shellspec/shellspec /usr/local/bin/shellspec \
  && useradd --create-home --uid 10001 lint
-USER lint
+# Numeric uid, not the name: hadolint DL3066.
+USER 10001
 WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:

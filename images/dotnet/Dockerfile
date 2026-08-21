@@ -35,7 +35,7 @@ COPY --from=csharpier-dl /usr/local/bin/csharpier   /usr/local/bin/csharpier
 # Non-root user; same run contract as lean (non-root lint, /work, no entrypoint). Tools only read
 # the mount. Unlike the jvm image's Temurin base, the .NET runtime sets no ENTRYPOINT to clear.
 RUN useradd --create-home --uid 10001 lint
-USER lint
+USER 10001
 WORKDIR /work
 
 # No args -> self-check (prove the tools run). Override with the tool you want:
