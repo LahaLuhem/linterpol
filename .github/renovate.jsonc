@@ -21,6 +21,11 @@
   // This repo allows rebase-merge only, and main requires linear history; leaving the strategy to
   // the platform default would try a merge commit and be rejected.
   "automergeStrategy": "rebase",
+  // regen-linters.yml commits LINTERS.md onto every Dockerfile PR, and Renovate won't force-push
+  // a branch another author touched, so without this it can never rebase one out of a conflict.
+  "gitIgnoredAuthors": [
+    "287673903+lahaluhem-ci-bot[bot]@users.noreply.github.com"
+  ],
   "packageRules": [
     {
       // Minor and major are deliberately left for review: most bundled tools are pre-1.0, where a
@@ -30,6 +35,14 @@
       "description": "Automerge digest-only and patch bumps: base-image rebuilds, action re-pins, tool patches.",
       "matchUpdateTypes": ["digest", "pin", "patch"],
       "automerge": true
+    },
+    {
+      // biome is two deps: the image's FROM tag and biome.json's $schema URL (custom manager below).
+      // One PR keeps them in lockstep, which is the whole point of tracking the URL. Automerge is
+      // left to inherit, so a patch group still automerges but a minor one drops out.
+      "description": "Keep the biome image and biome.json's $schema version in one PR.",
+      "matchPackageNames": ["ghcr.io/biomejs/biome", "@biomejs/biome"],
+      "groupName": "biome"
     }
   ],
 
