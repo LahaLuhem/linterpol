@@ -30,7 +30,7 @@ FROM bufbuild/buf:1.72.0@sha256:65bd496a89c762ad7151ca9e7d885a45dacb3671a8e8ec39
 # truth: Renovate bumps it, gen-linters.sh reads it) and verifies its download at build. ---
 # container-structure-test: no usable image (gcr.io/gcp-runtimes is amd64-only, last built 2023),
 # so fetch the per-arch binary here and verify it against the release's checksums.txt.
-FROM debian:stable-slim@sha256:1710bde34461551a19a47c787885ec9ad7058d9a5bead2affb8d088fa2f8502b AS cst-dl
+FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e00ce8ef5cc0a28a AS cst-dl
 # linter: tool: container-structure-test | lane: 2 | lints: container image structure & metadata | repo: https://github.com/GoogleContainerTools/container-structure-test
 # renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test
 ARG CST_VERSION=v1.22.1
@@ -45,7 +45,7 @@ RUN set -eux; \
 
 # SwiftLint's only image carries the whole Swift runtime, so extract the static `swiftlint-static`
 # from the release zip instead; no checksums.txt, hence `unzip -t`. See APPENDIX#two-lane-architecture.
-FROM debian:stable-slim@sha256:1710bde34461551a19a47c787885ec9ad7058d9a5bead2affb8d088fa2f8502b AS swiftlint-dl
+FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e00ce8ef5cc0a28a AS swiftlint-dl
 # linter: tool: swiftlint | lane: 2 | lints: Swift | repo: https://github.com/realm/SwiftLint
 # renovate: datasource=github-releases depName=realm/SwiftLint
 ARG SWIFTLINT_VERSION=0.65.0
@@ -64,7 +64,7 @@ RUN set -eux; \
 
 # rumdl: no official image, so verify the per-arch musl tarball against its .sha256. Assets are named
 # by Rust target triple, so remap TARGETARCH and use curl (ADD can't remap the arch into its URL).
-FROM debian:stable-slim@sha256:1710bde34461551a19a47c787885ec9ad7058d9a5bead2affb8d088fa2f8502b AS rumdl-dl
+FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e00ce8ef5cc0a28a AS rumdl-dl
 # linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
 # renovate: datasource=github-releases depName=rvben/rumdl
 ARG RUMDL_VERSION=v0.2.55
@@ -93,7 +93,7 @@ RUN set -eux; \
 
 # ryl (a Rust yamllint): same shape as rumdl, except it ships one SHA256SUMS for the release rather
 # than a per-asset .sha256, so pull the matching line out to verify. See APPENDIX#yaml-ryl.
-FROM debian:stable-slim@sha256:1710bde34461551a19a47c787885ec9ad7058d9a5bead2affb8d088fa2f8502b AS ryl-dl
+FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e00ce8ef5cc0a28a AS ryl-dl
 # linter: tool: ryl | lane: 2 | lints: YAML | repo: https://github.com/owenlamont/ryl
 # renovate: datasource=github-releases depName=owenlamont/ryl
 ARG RYL_VERSION=v0.21.0
@@ -122,7 +122,7 @@ RUN set -eux; \
 
 # shellspec: pure shell, so one arch-independent asset; no checksums.txt, hence `tar -tzf`. A tree
 # (executable + lib/), not one binary, so extract the dir. See APPENDIX#shellspec-test-framework.
-FROM debian:stable-slim@sha256:1710bde34461551a19a47c787885ec9ad7058d9a5bead2affb8d088fa2f8502b AS shellspec-dl
+FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e00ce8ef5cc0a28a AS shellspec-dl
 # linter: tool: shellspec | lane: 2 | lints: shell scripts (BDD tests) | repo: https://github.com/shellspec/shellspec
 # renovate: datasource=github-releases depName=shellspec/shellspec
 ARG SHELLSPEC_VERSION=0.28.1
@@ -134,7 +134,7 @@ RUN set -eux; \
     test -x /opt/shellspec/shellspec
 
 # --- Assembled image ---
-FROM debian:stable-slim@sha256:1710bde34461551a19a47c787885ec9ad7058d9a5bead2affb8d088fa2f8502b
+FROM debian:stable-slim@sha256:04634311a8d5fc442b6eb06d792293c4f3e2268652ca7634e00ce8ef5cc0a28a
 
 # Lane 1 binaries. All statically linked, so they run on any base.
 COPY --from=hadolint   /bin/hadolint             /usr/local/bin/hadolint
