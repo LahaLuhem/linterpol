@@ -64,7 +64,7 @@ jobs:
       # download-verifies; the jvm image fetches ktlint and the dotnet image installs CSharpier on
       # the native build arch).
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: arm64
 
