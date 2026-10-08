@@ -56,3 +56,6 @@ fileExistenceTests:
     path: /usr/local/bin/shellspec
     shouldExist: true
     isExecutableBy: any
+  - name: CA certificates, so a tool fetching over HTTPS can trust the server
+    path: /etc/ssl/certs/ca-certificates.crt
+    shouldExist: true

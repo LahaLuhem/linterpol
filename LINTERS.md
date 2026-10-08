@@ -94,8 +94,9 @@ through a `buf.lock`.
 ### `container-structure-test`: inspects an image, not your checkout
 
 It's the odd one out: it tests a built image rather than files in your checkout, so instead of a
-`:ro` source mount it needs the Docker socket mounted, or an image tarball via `--driver tar`. See
-the [upstream docs](https://github.com/GoogleContainerTools/container-structure-test) for the spec
+`:ro` source mount it needs the Docker socket mounted, or `--driver tar` with an image tarball or a
+registry reference, which it pulls itself. See the
+[upstream docs](https://github.com/GoogleContainerTools/container-structure-test) for the spec
 format and drivers.
 
 ### `shellspec`: runs a suite, not a linter

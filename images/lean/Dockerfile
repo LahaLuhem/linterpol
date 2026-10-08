@@ -154,14 +154,17 @@ COPY --from=ryl-dl       /usr/local/bin/ryl                      /usr/local/bin/
 # (a COPYd symlink gets dereferenced, severing it from its lib/, so make the link in the final image).
 COPY --from=shellspec-dl /opt/shellspec                          /opt/shellspec
 
-# --- Lane 2: package-manager installs would go here, in the final image. None yet. Example:
-#   RUN apt-get update \
-#     && apt-get install -y --no-install-recommends <pkg> \
-#     && rm -rf /var/lib/apt/lists/*
+# --- Lane 2: package-manager installs go in the final RUN below. Just ca-certificates, so tools can
+# fetch over HTTPS. Renovate can't track an apt pin, so DL3008 is ignored (see swiftlint-dl).
 
-# Final assembly: symlink shellspec onto PATH (a symlink keeps it tied to its lib/) and add the
-# non-root user (tools only read the mount). One RUN so the two don't trip hadolint's DL3059.
-RUN ln -s /opt/shellspec/shellspec /usr/local/bin/shellspec \
+# Final assembly: install the Lane 2 packages, symlink shellspec onto PATH (a symlink keeps it tied
+# to its lib/) and add the non-root user (tools only read the mount). One RUN so they don't trip
+# hadolint's DL3059.
+# hadolint ignore=DL3008
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -s /opt/shellspec/shellspec /usr/local/bin/shellspec \
  && useradd --create-home --uid 10001 lint
 # Numeric uid, not the name: hadolint DL3066.
 USER 10001
