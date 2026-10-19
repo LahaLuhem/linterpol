@@ -67,7 +67,7 @@ RUN set -eux; \
 FROM debian:stable-slim@sha256:eb593cf2c358cacef45ca0a424bbc7d30cfa3466265fc2662b9466a0ca6ba1c5 AS rumdl-dl
 # linter: tool: rumdl | lane: 2 | lints: Markdown | repo: https://github.com/rvben/rumdl
 # renovate: datasource=github-releases depName=rvben/rumdl
-ARG RUMDL_VERSION=v0.2.55
+ARG RUMDL_VERSION=v0.3.0
 ARG TARGETARCH
 # Throwaway stage again, and Renovate can't track an apt pin, so DL3008 is ignored (see swiftlint-dl).
 # hadolint ignore=DL3008
