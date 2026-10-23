@@ -24,7 +24,7 @@ What each image ships, one row per tool. There are three images:
 | [hadolint](https://github.com/hadolint/hadolint) | v2.15.1-alpine | 1 (static) | Dockerfiles | `hadolint/hadolint:v2.15.1-alpine` |
 | [actionlint](https://github.com/rhysd/actionlint) | 1.7.12 | 1 (static) | GitHub Actions workflows | `rhysd/actionlint:1.7.12` |
 | [shellcheck](https://github.com/koalaman/shellcheck) | v0.11.0 | 1 (static) | shell scripts | `koalaman/shellcheck:v0.11.0` |
-| [ruff](https://github.com/astral-sh/ruff) | 0.16.4 | 1 (static) | Python (lint + format) | `ghcr.io/astral-sh/ruff:0.16.4` |
+| [ruff](https://github.com/astral-sh/ruff) | 0.17.2 | 1 (static) | Python (lint + format) | `ghcr.io/astral-sh/ruff:0.17.2` |
 | [biome](https://github.com/biomejs/biome) | 2.5.15 | 1 (static) | JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | `ghcr.io/biomejs/biome:2.5.15` |
 | [buf](https://github.com/bufbuild/buf) | 1.72.0 | 1 (static) | Protocol Buffers | `bufbuild/buf:1.72.0` |
 | [container-structure-test](https://github.com/GoogleContainerTools/container-structure-test) | v1.22.1 | 2 | container image structure & metadata | n/a |
