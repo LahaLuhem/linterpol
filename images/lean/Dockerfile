@@ -16,7 +16,7 @@ FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fe
 # linter: lints: shell scripts | repo: https://github.com/koalaman/shellcheck
 FROM koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d AS shellcheck
 # linter: lints: Python (lint + format) | repo: https://github.com/astral-sh/ruff
-FROM ghcr.io/astral-sh/ruff:0.16.4@sha256:f40bbe3987964d8780910e8b110266256a6924224594317932223fbdab67012c AS ruff
+FROM ghcr.io/astral-sh/ruff:0.17.2@sha256:d69a8c8d529a866a6aaea0dfda672693d68671a08827db765514abc1571a78a0 AS ruff
 # biome: added for JSON/JSONC, but it lints+formats JS/TS/CSS/GraphQL too, for free. A plain Lane-1
 # static binary like ruff. See APPENDIX#json-biome.
 # linter: lints: JSON / JSONC, JavaScript / TypeScript (incl. JSX), CSS, GraphQL | repo: https://github.com/biomejs/biome
