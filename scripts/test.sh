@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
 #
-# Local + CI test suite for Linterpol. Builds the images and runs the same checks CI runs, so the
-# suite is one source of truth (no drift between local and CI) and you can run it without pushing.
+# Linterpol's test suite. CI runs this same script, so local and CI checks can't drift.
 #
-#   lint        gen-linters.sh --check, then dogfood the lean image's linters over this repo
-#               (hadolint, shellcheck, actionlint, rumdl, biome, ryl).
-#   structure   container-structure-test the lean image (its own c-s-t) and the jvm + dotnet
-#               siblings via the lean image's, asserting each image's contract.
-#   oci         build the lean image to an OCI layout and assert it uses OCI media types throughout
-#               (the PR-time half of the compliance gate; the publish half is in build_and_push.yml).
-#   all         lint + structure + oci   (default)
+#   lint        gen-linters.sh --check, then the lean image's own linters over this repo
+#   structure   container-structure-test each image (specs in tests/)
+#   oci         the lean image builds with OCI media types (build_and_push.yml checks the pushed one)
+#   all         everything above (default)
 #
-# Usage: scripts/test.sh [lint|structure|oci|all]   (default: all)
-#
-# Images are (re)built from source via build.sh, relying on the Docker layer cache for speed. CI
-# calls the targets as separate steps (.github/workflows/test.yml); the CI-only gate that skips
-# already-tested merge commits stays in that workflow.
+# Usage: scripts/test.sh [lint|structure|oci|all]
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -43,8 +35,7 @@ need_docker() {
   exit 2
 }
 
-# Build images once per run (guarded). build.sh self-checks each image as it goes; on failure we
-# surface the tail of the build log and let the caller skip the checks that need the image.
+# Build at most once per run. build.sh also runs each image's self-check.
 lean_built='' all_built=''
 
 ensure_lean() {
@@ -67,13 +58,10 @@ ensure_all() {
   bad 'image build'; tail -n 30 "$log"; rm -f "$log"; return 1
 }
 
-# Run a bundled linter from the freshly built lean image over the repo (mounted read-only at /work,
-# the image's workdir). The host isn't assumed to have the tools; the image is the version source.
+# The freshly built image runs the linters, so the host needs none and versions match what ships.
 lint_tool() { docker run --rm -v "$repo_root:/work:ro" -w /work "$LINTERPOL_IMAGE" "$@"; }
 
-# structure_test <image> <repo-relative-config>: docker save the image and run the lean image's
-# container-structure-test against the tarball (tar driver, so no Docker socket needed; the specs
-# are metadata + file-existence only).
+# Tar driver, so no Docker socket. It can't run commands, and the specs don't need it to.
 structure_test() {
   local image="$1" cfg="$2" td rc=0
   td="$(mktemp -d)"
@@ -96,7 +84,10 @@ run_lint() {
   if lint_tool hadolint images/lean/Dockerfile images/jvm/Dockerfile images/dotnet/Dockerfile; then ok 'Dockerfiles clean'; else bad 'hadolint'; fi
 
   section 'shellcheck (shell scripts)'
-  if lint_tool shellcheck scripts/*.sh; then ok 'scripts clean'; else bad 'shellcheck'; fi
+  # Every tracked script, wherever it lives, so a new one can't skip the check.
+  local sh_files=() f
+  while IFS= read -r f; do sh_files+=("$f"); done < <(git ls-files '*.sh')
+  if lint_tool shellcheck "${sh_files[@]}"; then ok 'scripts clean'; else bad 'shellcheck'; fi
 
   section 'actionlint (workflows)'
   if lint_tool actionlint; then ok 'workflows clean'; else bad 'actionlint'; fi

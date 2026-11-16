@@ -1,6 +1,3 @@
-# The build COPYs nothing from the context: Lane 1 tools arrive via `COPY --from` upstream
-# stages, and the Lane 2 binary (container-structure-test) is fetched with `ADD <url>` in its
-# build stage. So the context needs to carry nothing at all: ignore everything. Docker still
-# reads the Dockerfile and this .dockerignore regardless. If a tool ever needs a local file
-# COPYed in, allow it back with a `!path` negation below.
-*
+# Allowlist of folders, not files, so a file added to one can't be left out of the build.
+/*
+!images/
