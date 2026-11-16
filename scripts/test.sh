@@ -81,7 +81,7 @@ run_lint() {
   if ./scripts/gen-linters.sh --check; then ok 'LINTERS.md in sync'; else bad 'LINTERS.md drift (run scripts/gen-linters.sh)'; fi
 
   section 'hadolint (Dockerfiles)'
-  if lint_tool hadolint images/lean/Dockerfile images/jvm/Dockerfile images/dotnet/Dockerfile; then ok 'Dockerfiles clean'; else bad 'hadolint'; fi
+  if lint_tool hadolint images/*/Dockerfile; then ok 'Dockerfiles clean'; else bad 'hadolint'; fi
 
   section 'shellcheck (shell scripts)'
   # Every tracked script, wherever it lives, so a new one can't skip the check.
