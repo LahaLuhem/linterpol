@@ -11,10 +11,15 @@ FROM --platform=$BUILDPLATFORM eclipse-temurin:25.0.3_9-jre@sha256:7c1c6297dc3a3
 # renovate: datasource=github-releases depName=ktlint/ktlint
 ARG KTLINT_VERSION=1.8.0
 ADD https://github.com/ktlint/ktlint/releases/download/${KTLINT_VERSION}/ktlint /usr/local/bin/ktlint
+# `--version` never loads the Kotlin parser, so also lint a file with one known finding. ktlint exits
+# 1 on a finding and on a crash alike, so the grep is the check.
 RUN set -eux; \
     chmod 0755 /usr/local/bin/ktlint; \
     ktlint --version >/tmp/ktlint.version 2>&1; \
-    grep -qF "ktlint version ${KTLINT_VERSION}" /tmp/ktlint.version
+    grep -qF "ktlint version ${KTLINT_VERSION}" /tmp/ktlint.version; \
+    printf 'fun probe() = 1;\n' >/tmp/Probe.kt; \
+    ktlint /tmp/Probe.kt >/tmp/ktlint.out 2>&1 || true; \
+    grep -qF '(standard:no-semi)' /tmp/ktlint.out
 
 # --- detekt download, checked through its wrapper. ---
 # Same fetch-once pattern as ktlint. A plain jar, so images/jvm/detekt.sh launches it.
@@ -25,7 +30,7 @@ ARG DETEKT_VERSION=v1.23.8
 ADD https://github.com/detekt/detekt/releases/download/${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION#v}-all.jar /opt/detekt/detekt-cli.jar
 COPY --chmod=0755 images/jvm/detekt.sh /usr/local/bin/detekt
 # URL downloads land as 0600, and `ADD --chmod` would lock the new folder too, so chmod here.
-# `--version` never loads the Kotlin parser, so also lint a file with one known finding.
+# Then the same parser check as ktlint-dl, through the wrapper.
 RUN set -eux; \
     chmod 0644 /opt/detekt/detekt-cli.jar; \
     detekt --version >/tmp/detekt.version; \

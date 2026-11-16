@@ -145,8 +145,8 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 - **Base + verification.** The base is a digest-pinned, multi-arch Temurin JRE, like any `FROM`
   (Renovate bumps it). ktlint ships no `checksums.txt`, and its `#!/bin/sh` self-executing JAR makes
   `unzip -t` only warn (so neither the container-structure-test checksum model nor the swiftlint CRC
-  model fits), so integrity is "run it on the JRE and assert the pinned version". detekt follows the
-  same model, plus a lint of a file with a known finding, since `--version` never loads its parser.
+  model fits), so integrity is "run it on the JRE and assert the pinned version", plus a lint of a
+  file with a known finding, since `--version` never loads the parser. detekt follows the same model.
   Because the jars are architecture-independent JVM bytecode, the fetch and check happen once on the
   build host's arch (`--platform=$BUILDPLATFORM`, no QEMU) and the jars are `COPY`d into the per-arch
   final image. The only emulated step in a cross-arch build stays the one-line `useradd`, same as the
@@ -164,9 +164,10 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   [`LINTERS.md`](./LINTERS.md#caveats) tells consumers how to close it with `--classpath`. The probes
   behind this are on [#71](https://github.com/LahaLuhem/linterpol/issues/71).
 - **detekt's launcher is a file, not a heredoc.** `images/jvm/detekt.sh` adds the JVM flag that
-  silences detekt's `sun.misc.Unsafe` warnings and keeps `docker run <img> detekt <args>` working like
-  the other tools. As a Dockerfile heredoc it would escape shellcheck (hadolint never looks inside
-  one), and a bare `<<EOF` lets BuildKit expand `$@` at build time, which drops every argument.
+  silences detekt's `sun.misc.Unsafe` warnings (ktlint's own launcher sets the same one) and keeps
+  `docker run <img> detekt <args>` working like the other tools. As a Dockerfile heredoc it would
+  escape shellcheck (hadolint never looks inside one), and a bare `<<EOF` lets BuildKit expand `$@` at
+  build time, which drops every argument.
 - **Skipped (from the investigation in [#4](https://github.com/LahaLuhem/linterpol/issues/4)).**
   Android Lint needs the Android SDK, Gradle and a project build model, so it isn't portable. Konsist
   is a JUnit/kotlin-test library whose rules run through a test runner, not against mounted source.
