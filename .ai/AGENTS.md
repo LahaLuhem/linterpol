@@ -159,8 +159,8 @@ hypothetical futures.
    host arch and self-checks each. See [`APPENDIX.md#build-script`](./APPENDIX.md#build-script).
 2. `./scripts/test.sh [lint|structure|oci|all]` runs the check suite locally or in CI (one source of
    truth, so the two can't drift): it **dogfoods** the lean image's linters over this repo, structure-
-   tests the lean image and the jvm + dotnet siblings (tar driver, no socket) against the
-   `tests/image-structure*.yaml` specs, runs `gen-linters.sh --check` for `LINTERS.md` drift, and
+   tests every variant's image (tar driver, no socket) against its `tests/image-structure*.yaml` spec
+   (a variant with no spec fails), runs `gen-linters.sh --check` for `LINTERS.md` drift, and
    asserts the lean image's OCI media types. `test.yml` calls its targets as separate steps, on
    every PR and every push to `main`.
 3. `release.yml` (manual dispatch, bump level) pushes a bare `1.2.3` tag with the App token, and that

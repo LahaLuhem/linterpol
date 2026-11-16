@@ -26,8 +26,9 @@ ok()      { printf '%s ok %s  %s\n' "$grn" "$rst" "$1"; }
 bad()     { printf '%sFAIL%s  %s\n' "$red" "$rst" "$1"; failures=$((failures + 1)); }
 
 LINTERPOL_IMAGE='linterpol:local'
-JVM_IMAGE='linterpol-jvm:local'
-DOTNET_IMAGE='linterpol-dotnet:local'
+
+# A variant's image and spec names, as build.sh tags them: lean has no suffix.
+suffix() { [ "$1" = lean ] || printf -- '-%s' "$1"; }
 
 need_docker() {
   command -v docker >/dev/null 2>&1 && return 0
@@ -51,7 +52,7 @@ ensure_lean() {
 ensure_all() {
   [ -n "$all_built" ] && return 0
   local log; log="$(mktemp)"
-  section 'build images (lean + jvm + dotnet)'
+  section 'build every variant'
   if ./scripts/build.sh >"$log" 2>&1; then
     ok 'built all variants'; all_built=1; lean_built=1; rm -f "$log"; return 0
   fi
@@ -106,14 +107,15 @@ run_structure() {
   need_docker
   ensure_all || return 0
 
-  section 'container-structure-test: lean'
-  if structure_test "$LINTERPOL_IMAGE" tests/image-structure.yaml; then ok 'lean structure'; else bad 'lean structure'; fi
-
-  section 'container-structure-test: jvm (via lean image)'
-  if structure_test "$JVM_IMAGE" tests/image-structure-jvm.yaml; then ok 'jvm structure'; else bad 'jvm structure'; fi
-
-  section 'container-structure-test: dotnet (via lean image)'
-  if structure_test "$DOTNET_IMAGE" tests/image-structure-dotnet.yaml; then ok 'dotnet structure'; else bad 'dotnet structure'; fi
+  local d v spec
+  for d in images/*/; do
+    [ -f "${d}Dockerfile" ] || continue
+    v="$(basename "$d")"
+    spec="tests/image-structure$(suffix "$v").yaml"
+    section "container-structure-test: $v"
+    if [ ! -f "$spec" ]; then bad "$v has no $spec"; continue; fi
+    if structure_test "linterpol$(suffix "$v"):local" "$spec"; then ok "$v structure"; else bad "$v structure"; fi
+  done
 }
 
 run_oci() {
