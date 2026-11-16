@@ -160,11 +160,11 @@ hypothetical futures.
    truth, so the two can't drift): it **dogfoods** the lean image's linters over this repo, structure-
    tests the lean image and the jvm + dotnet siblings (tar driver, no socket) against the
    `tests/image-structure*.yaml` specs, runs `gen-linters.sh --check` for `LINTERS.md` drift, and
-   asserts the lean image's OCI media types. `test.yml` just calls its targets as separate steps
-   (behind a CI-only gate that skips commits already tested on their PR).
+   asserts the lean image's OCI media types. `test.yml` calls its targets as separate steps, on
+   every PR and every push to `main`.
 3. `release.yml` (manual dispatch, bump level) pushes a bare `1.2.3` tag with the App token, and that
-   push is what triggers a publish. It pre-flights first: main only, and no failing or in-flight
-   checks on HEAD.
+   push is what triggers a publish. It pre-flights first: main only, and every check on HEAD must
+   have succeeded.
 4. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol`, `linterpol-jvm`, and
    `linterpol-dotnet` as `1.2.3` + `1.2` + `1` + `latest`. Version tags only. `main` pushes and PRs
    build-validate both arches without pushing.

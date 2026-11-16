@@ -40,8 +40,8 @@ jobs:
     steps:
       # Main only: a tag off a branch would ship code that isn't on main, and version-increment
       # suffixes `-pre.<sha>` there. And don't release a red HEAD. Only `selftest` is required to
-      # merge, so this is what keeps a red `build` (say an arm64-only break) from publishing. Skipped
-      # counts as green, and this run's own check is excluded.
+      # merge, so this is what keeps a red `build` (say an arm64-only break) from publishing. A
+      # skipped check tested nothing, so only `success` passes. This run's own check is excluded.
       - name: Pre-flight
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,10 +55,10 @@ jobs:
           bad="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" --paginate \
             --jq '.check_runs[]
                   | select(.name != $ENV.JOB)
-                  | select((.conclusion // "pending") | IN("success", "skipped", "neutral") | not)
+                  | select(.conclusion != "success")
                   | "\(.name): \(.status)/\(.conclusion // "pending")"')"
           if [ -n "$bad" ]; then
-            echo "::error::main at $GITHUB_SHA has checks that are failing or still running:"
+            echo "::error::main at $GITHUB_SHA has checks that didn't succeed or are still running:"
             echo "$bad"
             exit 1
           fi
