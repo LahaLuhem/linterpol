@@ -47,6 +47,7 @@ What each image ships, one row per tool. There are three images:
 | Tool | Version | Lane | Lints | Upstream image |
 | --- | --- | --- | --- | --- |
 | [ktlint](https://github.com/ktlint/ktlint) | 1.8.0 | 2 | Kotlin | n/a |
+| [detekt](https://github.com/detekt/detekt) | v1.23.8 | 2 | Kotlin (code smells) | n/a |
 <!-- linters:jvm:end -->
 
 ## `linterpol-dotnet`
