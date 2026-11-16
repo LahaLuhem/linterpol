@@ -2,6 +2,7 @@ name: Test
 
 on:
   pull_request:
+  # Main too: a PR's test ran against the main it branched from, not always the main it lands on.
   push:
     branches:
       - main
@@ -14,40 +15,9 @@ permissions:
   contents: read
 
 jobs:
-  # Always run on pull requests. On a push to main, skip if the pushed commit came from
-  # a merged PR (already tested on the PR) but run for a direct push. Uses the commit/PR
-  # association, so it's independent of the merge strategy (merge commit, squash, rebase).
-  gate:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - name: Decide
-        id: decide
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != 'push' ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          count="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq 'length')"
-          if [ "$count" -gt 0 ]; then
-            echo "$GITHUB_SHA came from a PR; skipping (already tested on the PR)."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-
-  # Build the images and run the suite via scripts/test.sh (the same script you run locally, so the
-  # two can't drift), split into three steps so CI keeps per-step status. test.sh dogfoods the lean
-  # image's own linters over this repo, structure-tests all three images, and checks OCI media types.
+  # The same scripts/test.sh you run locally, so CI and local can't drift. A step per target shows
+  # which part failed.
   selftest:
-    needs: gate
-    if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -59,5 +29,5 @@ jobs:
       - name: Structure-test the images
         run: ./scripts/test.sh structure
 
-      - name: Validate OCI media types (lean, PR-time)
+      - name: Validate OCI media types (lean)
         run: ./scripts/test.sh oci
