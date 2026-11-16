@@ -198,9 +198,9 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 - **File-level, read-only contract.** The image lints a read-only mount like every other linterpol
   image. There is **no** SDK in the final image, no NuGet restore at runtime, and no `.sln`-loading
   tools. `csharpier check <path>` is the read-only mode: it reports unformatted files and exits
-  non-zero. `format` is the one that writes, and we don't use it. Taking on a build/restore contract
-  would mean shipping the SDK and a restore step, a different and much heavier kind of image, out of
-  scope by design.
+  non-zero. `format` is the one that writes, and linting has no use for it. Taking on a build/restore
+  contract would mean shipping the SDK and a restore step, a different and much heavier kind of image,
+  out of scope by design.
 - **It is NOT a new lane.** As with the jvm image, CSharpier is a plain Lane-2 install (a NuGet
   `dotnet tool`), the same axis as swiftlint / ktlint / container-structure-test. The new axis is the
   **image variant / base runtime** (a .NET runtime), not a third lane.
@@ -211,16 +211,20 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
   tool's payload DLLs are architecture-independent IL (they live under `tools/<tfm>/any/`). So the
   ktlint "fetch once on `$BUILDPLATFORM`" trick still applies, just via the SDK: an SDK stage on
   `--platform=$BUILDPLATFORM` runs `dotnet tool install` (no QEMU), the `net10.0` payload is copied
-  into the per-arch final image, and a tiny `csharpier` wrapper on PATH runs the DLL through the
-  `dotnet` host (`exec dotnet …/CSharpier.dll "$@"`) instead of the arch-specific shim. The only
-  emulated step in a cross-arch build stays the one-line `useradd`, same as lean and jvm. The
-  `net10.0` payload targets `Microsoft.NETCore.App 10.0.0`, an exact match for the base, and its
-  `runtimeconfig.json` sets `rollForward: Major` as a safety net.
+  into the per-arch final image, and a `csharpier` wrapper on PATH runs the DLL through the `dotnet`
+  host instead of the arch-specific shim. The wrapper is a file
+  ([`images/dotnet/csharpier.sh`](./images/dotnet/csharpier.sh)) for the same reason as detekt's
+  launcher: shellcheck reads it. The only emulated step in a cross-arch build stays the one-line
+  `useradd`, same as lean and jvm. The `net10.0` payload targets `Microsoft.NETCore.App 10.0.0`, an
+  exact match for the base, and its `runtimeconfig.json` sets `rollForward: Major` as a safety net.
 - **Verification.** CSharpier ships no `checksums.txt`, but `dotnet tool install` validates the
   package signature, and running the DLL (`csharpier --version`) asserts the pinned version, so
-  integrity and version are proven in one step, the same "run it and assert" model as ktlint. The
-  `ARG CSHARPIER_VERSION` is the single source of version truth: `gen-linters.sh` reads it for
-  `LINTERS.md` and Renovate bumps it (the `custom.regex` manager, `datasource=nuget depName=CSharpier`).
+  integrity and version are proven in one step, the same "run it and assert" model as ktlint.
+  `--version` never loads the formatter, so the build also formats a messy file through the wrapper
+  and asserts the output changed. That's `format --write-stdout` (prints, writes nothing), not
+  `check`, which exits 1 on a finding and on a crash alike. The `ARG CSHARPIER_VERSION` is the single
+  source of version truth: `gen-linters.sh` reads it for `LINTERS.md` and Renovate bumps it (the
+  `custom.regex` manager, `datasource=nuget depName=CSharpier`).
 - **Entrypoint.** Unlike the Temurin base the jvm image has to reset, the .NET runtime base sets no
   `ENTRYPOINT`, so there's nothing to clear. `tests/image-structure-dotnet.yaml` still asserts the
   empty entrypoint so the contract is locked either way.

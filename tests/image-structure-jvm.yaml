@@ -1,5 +1,6 @@
 # Spec for linterpol-jvm. It ships no container-structure-test, so test.sh runs the lean image's
-# against this one's tarball. The tar driver can't run commands, so the self-check CMD covers that.
+# against this one's tarball. The tar driver can't run commands, so the Dockerfile's lint checks and
+# the self-check CMD cover that.
 schemaVersion: "2.0.0"
 
 metadataTest:
