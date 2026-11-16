@@ -11,8 +11,8 @@ What each image ships, one row per tool. There are three images:
 
 > **Generated.** The tables below are produced from the per-image Dockerfiles
 > (`images/<variant>/Dockerfile`) by [`gen-linters.sh`](./scripts/gen-linters.sh), which CI runs on
-> any Dockerfile change (`regen-linters.yml`) and commits back. Don't hand-edit or commit them:
-> change the Dockerfile (the `FROM` line and its `# linter:` annotation); run
+> any Dockerfile change (`regen-linters.yml`) and commits back. Don't hand-edit or commit them.
+> Change the Dockerfile (the `FROM` line and its `# linter:` annotation), and run
 > `./scripts/gen-linters.sh` locally to preview.
 
 ## `linterpol` (lean)
@@ -88,7 +88,7 @@ history does.
 One more thing worth knowing about `buf lint`: it compiles, so it needs the whole import graph to
 resolve. An unresolvable import makes it report *only* `imported file does not exist` and nothing
 else, so a missing dependency looks like a clean-ish failure rather than a lint result. Well-known
-types (`google/protobuf/*`) are built in; anything else has to be vendored in the tree or resolved
+types (`google/protobuf/*`) are built in. Anything else has to be vendored in the tree or resolved
 through a `buf.lock`.
 
 ### `container-structure-test`: inspects an image, not your checkout
@@ -106,20 +106,39 @@ analysing files, so point it at a repo that is a shellspec project (one with a `
 honours the read-only mount, writing its temp to `/tmp`. Code coverage needs `kcov` and is out of
 scope for these images.
 
+### `detekt`: no type info unless you pass a classpath
+
+The image lints your checkout without building it, so detekt has no type info. About a third of its
+default rules lean on types: without them some don't run at all and others get less accurate, and
+detekt doesn't say which. A `s!!.length` on a nullable `s` goes unreported, for one.
+
+Mount the jars your code compiles against and list them with `--classpath`, joined by `:`, to bring
+those rules back:
+
+```bash
+docker run --rm -v "$PWD:/work:ro" -v /path/to/jars:/jars:ro "$img" detekt --classpath /jars/a.jar:/jars/b.jar
+```
+
+detekt's [type resolution docs](https://detekt.dev/docs/1.23.8/gettingstarted/type-resolution/) cover
+the other flags, and the Gradle tasks (`detektMain`, `detektTest`) that do this inside your own build.
+
 ## Adding a linter
 
-First pick the image: a linter for the common stack goes in the lean image
-(`images/lean/Dockerfile`); a JVM-language linter that needs a JRE goes in the jvm image
-(`images/jvm/Dockerfile`); a C# linter that needs the .NET runtime goes in the dotnet image
-(`images/dotnet/Dockerfile`). A brand-new stack gets its own `images/<variant>/Dockerfile` plus a
-`linters:<variant>` section here. Then:
+First pick the image:
+
+- a linter for the common stack goes in the lean image (`images/lean/Dockerfile`)
+- a JVM-language linter that needs a JRE goes in the jvm image (`images/jvm/Dockerfile`)
+- a C# linter that needs the .NET runtime goes in the dotnet image (`images/dotnet/Dockerfile`)
+
+A brand-new stack gets its own `images/<variant>/Dockerfile` plus a `linters:<variant>` section here.
+Then:
 
 **Lane 1 (a static Go/Rust/Haskell binary with an official image)** is the cheap path:
 
 1. Add the stage with its annotation: a `# linter: lints: <what> | repo: <url>` line, then
    `FROM <official-image>:<tag>@<digest> AS <name>`.
 2. Add a copy: `COPY --from=<name> <path-in-image> /usr/local/bin/<name>`.
-3. That's it. CI regenerates the table above on the Dockerfile change; run `./scripts/gen-linters.sh` locally to preview.
+3. That's it. CI regenerates the table above on the Dockerfile change, and `./scripts/gen-linters.sh` previews it locally.
 
 Confirm the upstream image ships both `linux/arm64` and `linux/amd64` first, so the
 combined image stays multi-arch:
