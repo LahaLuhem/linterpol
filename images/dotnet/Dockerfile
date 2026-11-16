@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 #
-# Linterpol .NET: the .NET-stack lint variant. Published to ghcr.io/lahaluhem/linterpol-dotnet:latest
-# by build_and_push.yml; built locally as linterpol-dotnet:local by ./scripts/build.sh.
+# Linterpol .NET: the .NET-stack lint variant. Published to ghcr.io/lahaluhem/linterpol-dotnet by
+# build_and_push.yml, built locally as linterpol-dotnet:local by ./scripts/build.sh.
 #
 # A sibling of the lean image, not a superset: the .NET runtime + C# linters only, so lean's consumers
 # don't carry a runtime. CSharpier is file-level and read-only (`csharpier check` reports the diff,
@@ -20,10 +20,16 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
 ARG CSHARPIER_VERSION=1.3.0
 RUN set -eux; \
     dotnet tool install --tool-path /tmp/tool CSharpier --version "${CSHARPIER_VERSION}"; \
-    cp -r "/tmp/tool/.store/csharpier/${CSHARPIER_VERSION}/csharpier/${CSHARPIER_VERSION}/tools/net10.0/any" /opt/csharpier; \
-    test "$(dotnet /opt/csharpier/CSharpier.dll --version)" = "${CSHARPIER_VERSION}"; \
-    printf '#!/bin/sh\nexec dotnet /opt/csharpier/CSharpier.dll "$@"\n' > /usr/local/bin/csharpier; \
-    chmod 0755 /usr/local/bin/csharpier
+    cp -r "/tmp/tool/.store/csharpier/${CSHARPIER_VERSION}/csharpier/${CSHARPIER_VERSION}/tools/net10.0/any" /opt/csharpier
+COPY --chmod=0755 images/dotnet/csharpier.sh /usr/local/bin/csharpier
+# `--version` never loads the formatter, so also format a messy file. `format`, not `check`: check
+# exits 1 on a finding and on a crash alike, where `format --write-stdout` fails only on a crash.
+RUN set -eux; \
+    test "$(csharpier --version)" = "${CSHARPIER_VERSION}"; \
+    printf 'class   Probe{}\n' >/tmp/Probe.cs; \
+    csharpier format --write-stdout /tmp/Probe.cs >/tmp/Formatted.cs; \
+    test -s /tmp/Formatted.cs; \
+    if cmp -s /tmp/Probe.cs /tmp/Formatted.cs; then exit 1; fi
 
 # --- Assembled image ---
 FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:a3f9f81954b9c810af2ed18849716c8dc74a4707bd0907fdbd69be81554c0f30
@@ -32,8 +38,8 @@ FROM mcr.microsoft.com/dotnet/runtime:10.0@sha256:a3f9f81954b9c810af2ed18849716c
 COPY --from=csharpier-dl /opt/csharpier             /opt/csharpier
 COPY --from=csharpier-dl /usr/local/bin/csharpier   /usr/local/bin/csharpier
 
-# Non-root user; same run contract as lean (non-root lint, /work, no entrypoint). Tools only read
-# the mount. Unlike the jvm image's Temurin base, the .NET runtime sets no ENTRYPOINT to clear.
+# Same run contract as lean: non-root, from /work, no entrypoint. Tools only read the mount. Unlike
+# the jvm image's Temurin base, the .NET runtime sets no ENTRYPOINT to clear.
 RUN useradd --create-home --uid 10001 lint
 USER 10001
 WORKDIR /work
