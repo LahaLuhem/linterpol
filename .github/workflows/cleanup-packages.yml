@@ -1,14 +1,11 @@
 name: Cleanup old package versions
 
 # Each release keeps its exact version tag (1.2.3) after `latest`/`1.2`/`1` move on, so nothing goes
-# untagged routinely any more; what's left to prune is the pre-1.0.0 `:latest`-era backlog and any
+# untagged routinely any more. What's left to prune is the pre-1.0.0 `:latest`-era backlog and any
 # orphans. Keep the newest 10 tagged versions (a release's four tags share one version, so that's the
-# last 10 releases), delete everything untagged, never touch `latest`. The old 30-day window is gone:
-# it only existed to guess how long a consumer might still pin an unprotected digest, and consumers
-# now pin a retained tag (APPENDIX.md#versioning-releases).
-#
-# Back in dry-run because the rules changed and the first run clears the whole historical backlog:
-# review one run's output, then flip dry-run to false. Deleting published versions is outward-facing.
+# last 10 releases), delete everything untagged, never touch `latest`. No age window: it only guessed
+# how long a consumer might pin an untagged digest, and consumers pin a retained tag
+# (APPENDIX.md#versioning-releases).
 
 on:
   schedule:
@@ -36,4 +33,3 @@ jobs:
           delete-untagged: true
           exclude-tags: latest
           validate: true   # every retained multi-arch index still has its per-arch children
-          dry-run: true

@@ -230,8 +230,7 @@ are in place and verified. To finish the standalone setup:
       `assert_oci_registry.sh` passes, and all three are anonymously pullable. This was also the first
       `linterpol-dotnet` publish and the first publish carrying `container-structure-test`.
 - [x] **`cleanup-packages.yml` simplified** to `keep-n-tagged: 10` + `delete-untagged`, age window
-      dropped. **Left in `dry-run: true`**: the first run under the new rules clears the whole
-      pre-1.0.0 untagged backlog, so review one run's output before flipping it to false.
-- [ ] In downstream consumers: repoint the `LINTERPOL_IMAGE`-equivalent off a bare `:latest` digest
-      onto a `1.0.0` tag (Renovate's `config:best-practices` will keep it as `1.0.0@sha256:…`), so
+      dropped. Dry-run is off: its output was reviewed, and no consumer pins an untagged digest.
+- [ ] In downstream consumers: repoint the `LINTERPOL_IMAGE`-equivalent off the bare `:latest` tag
+      onto a version tag (Renovate's `config:best-practices` will keep it as `1.2.3@sha256:…`), so
       bumps arrive as reviewable PRs instead of a moving tag shifting under CI.
