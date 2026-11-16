@@ -117,8 +117,9 @@ hypothetical futures.
    an official image goes in **Lane 1** (a `# linter:` annotation + `FROM <img>:<tag>@<digest> AS <name>`
    + `COPY --from=<name> …`). A tool with no usable official image goes in **Lane 2** (a package-manager
    install block, or a prebuilt binary downloaded and verified in a stage then `COPY`d in), with a
-   self-contained `# linter:` annotation. Lanes are orthogonal to variants. Every bundled tool gets a row
-   in [`LINTERS.md`](./LINTERS.md), whose tables are **generated** from the Dockerfiles. CI
+   `# linter: tool:` annotation directly above its `ARG <NAME>_VERSION`. Lanes are orthogonal to
+   variants. Every bundled tool gets a row in [`LINTERS.md`](./LINTERS.md), whose tables are
+   **generated** from the Dockerfiles. CI
    (`regen-linters.yml`) regenerates and commits on any Dockerfile change, so don't hand-edit or commit
    it (run `./scripts/gen-linters.sh` locally only to preview). See
    [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant),
