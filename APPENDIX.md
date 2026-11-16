@@ -347,10 +347,14 @@ grows into many heterogeneous tools, that is the cue to switch its runner to
 - **Where the data comes from:** for a Lane-1 tool the version and upstream image are parsed off its
   `FROM <img>:<tag>@<digest> AS <name>` line. The two things not in a `FROM` (what it lints, its repo
   link) come from a `# linter: lints: … | repo: …` comment directly above that `FROM`. A Lane-2 tool
-  has no `FROM`, so its annotation also carries `tool:` and `lane: 2`, plus `version:` unless an
-  `ARG …_VERSION` below it holds the version. One tool is still one place to edit.
+  has no `FROM`, so its annotation also carries `tool:` and sits directly above the `ARG …_VERSION`
+  that holds its version. One tool is still one place to edit.
+- **An annotation must describe the next instruction.** Only comments may sit between it and its
+  `FROM` or `ARG`, and anything else fails the script. The looser parser it replaced took the next
+  `ARG` anywhere, so a tool with a missing or misplaced `ARG` dropped out of the table, or took
+  another line's value, and still exited 0.
 - **The Version column is the raw pin:** for a Lane-1 tool, the tag from its `FROM` (e.g.
-  `v2.14.0-alpine`), and for a Lane-2 downloaded binary, the value of its `ARG …_VERSION` line (e.g.
+  `v2.14.0-alpine`), and for a Lane-2 tool, the value of its `ARG …_VERSION` line (e.g.
   `container-structure-test`'s `CST_VERSION`). No flavor-stripping heuristic, so it tracks whatever
   Renovate writes, literally.
 - **Drift guard:** `./scripts/gen-linters.sh --check` regenerates and diffs against the committed file,

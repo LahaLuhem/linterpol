@@ -149,14 +149,17 @@ docker manifest inspect <official-image>:<tag> | grep -i architecture
 ```
 
 **Lane 2 (npm/pip/apt tool, or a downloaded binary)** goes in an install block or a
-download-and-verify stage in the variant's Dockerfile, with a self-contained annotation that carries
-its own name and version:
+download-and-verify stage in the variant's Dockerfile. Its annotation names the tool and sits
+directly above the `ARG` that pins the version the install uses:
 
 ```dockerfile
-# linter: tool: <name> | version: <x.y.z> | lane: 2 | lints: <what> | repo: <url>
+# linter: tool: <name> | lints: <what> | repo: <url>
+# renovate: datasource=<datasource> depName=<package>
+ARG <NAME>_VERSION=<version>
 ```
 
-For a downloaded binary, drop `version:` and put the version in an `ARG <NAME>_VERSION=` line below
-the annotation, so it stays the single source of truth and Renovate can bump it. CI then regenerates
-the table (run `./scripts/gen-linters.sh` locally to preview). If Lane 2 ever grows to many
-heterogeneous tools, that's the cue to switch its runner to [pre-commit](https://pre-commit.com).
+That `ARG` is the one version source, so the table can't disagree with the image, and the
+`# renovate:` line lets Renovate bump it. `gen-linters.sh` fails if an annotation isn't followed by
+its `FROM` or `ARG`, and CI regenerates the table (run `./scripts/gen-linters.sh` locally to
+preview). If Lane 2 ever grows to many heterogeneous tools, that's the cue to switch its runner to
+[pre-commit](https://pre-commit.com).

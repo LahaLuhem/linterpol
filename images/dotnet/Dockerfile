@@ -15,7 +15,7 @@
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS csharpier-dl
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
-# linter: tool: csharpier | lane: 2 | lints: C# | repo: https://github.com/belav/csharpier
+# linter: tool: csharpier | lints: C# | repo: https://github.com/belav/csharpier
 # renovate: datasource=nuget depName=CSharpier
 ARG CSHARPIER_VERSION=1.3.0
 RUN set -eux; \

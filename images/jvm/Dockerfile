@@ -7,7 +7,7 @@
 # ktlint is a self-executing fat JAR (pure bytecode), so fetch it once on $BUILDPLATFORM and COPY the
 # one jar in. Its sh preamble defeats `unzip -t`, so integrity is run-it-and-assert.
 FROM --platform=$BUILDPLATFORM eclipse-temurin:25.0.3_9-jre@sha256:7c1c6297dc3a3ff947922f3ab14ecd326e29083b9edaa8dbff3b94fef1688311 AS ktlint-dl
-# linter: tool: ktlint | lane: 2 | lints: Kotlin | repo: https://github.com/ktlint/ktlint
+# linter: tool: ktlint | lints: Kotlin | repo: https://github.com/ktlint/ktlint
 # renovate: datasource=github-releases depName=ktlint/ktlint
 ARG KTLINT_VERSION=1.8.0
 ADD https://github.com/ktlint/ktlint/releases/download/${KTLINT_VERSION}/ktlint /usr/local/bin/ktlint
@@ -24,7 +24,7 @@ RUN set -eux; \
 # --- detekt download, checked through its wrapper. ---
 # Same fetch-once pattern as ktlint. A plain jar, so images/jvm/detekt.sh launches it.
 FROM --platform=$BUILDPLATFORM eclipse-temurin:25.0.3_9-jre@sha256:7c1c6297dc3a3ff947922f3ab14ecd326e29083b9edaa8dbff3b94fef1688311 AS detekt-dl
-# linter: tool: detekt | lane: 2 | lints: Kotlin (code smells) | repo: https://github.com/detekt/detekt
+# linter: tool: detekt | lints: Kotlin (code smells) | repo: https://github.com/detekt/detekt
 # renovate: datasource=github-releases depName=detekt/detekt
 ARG DETEKT_VERSION=v1.23.8
 ADD https://github.com/detekt/detekt/releases/download/${DETEKT_VERSION}/detekt-cli-${DETEKT_VERSION#v}-all.jar /opt/detekt/detekt-cli.jar
