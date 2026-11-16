@@ -9,12 +9,10 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Matrix of images (lean + jvm + dotnet), each a single-job multi-arch build: the images only land prebuilt
-# per-arch binaries (Lane-1 COPY --from upstreams, Lane-2 downloads done on the build arch), so the
-# sole emulated step per image is a one-line useradd and a native-runner matrix isn't worth it
-# (see APPENDIX.md#single-job-buildx).
+# Matrix of images (lean + jvm + dotnet), each built multi-arch in one job rather than a native-runner
+# matrix (see APPENDIX.md#single-job-buildx).
 #
-# Only a version tag publishes (APPENDIX.md#versioning-releases); main pushes and PRs build-validate
+# Only a version tag publishes (APPENDIX.md#versioning-releases). Main pushes and PRs build-validate
 # both arches without pushing. Validate a branch without merging:
 #   gh workflow run build_and_push.yml --ref <branch>
 
@@ -53,16 +51,14 @@ jobs:
             title: Linterpol .NET
             description: ".NET-stack CI lint tools."
     env:
-      # Tag refs publish (push or `gh workflow run … --ref 1.2.3`); branch refs build-validate.
+      # Tag refs publish (push or `gh workflow run … --ref 1.2.3`). Branch refs build-validate.
       PUBLISH: ${{ github.ref_type == 'tag' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # arm64 is the only emulated platform (amd64 is native to the runner); the steps that run in
-      # the arm64 rootfs are trivial (each image's one-line useradd, plus lean's Lane-2
-      # download-verifies; the jvm image fetches ktlint and the dotnet image installs CSharpier on
-      # the native build arch).
+      # arm64 is the only emulated platform (amd64 is native to the runner). Only lean's Lane-2
+      # download-verifies and each image's one-line useradd run in it, so emulation stays cheap.
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
@@ -79,12 +75,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Generate tags + OCI labels + OCI annotations (index and manifest level) from the build
-      # context. This is the single source of truth for image metadata; the Dockerfiles carry no
-      # LABELs. title/description are curated per variant (the matrix); source/revision/created/
-      # version/licenses fill in automatically from the repo and the build commit.
-      # Tag `1.2.3` publishes 1.2.3 + 1.2 + 1 + latest; `latest` comes free from the default
-      # `flavor: latest=auto`. The `ref` entries only name non-publishing builds (`main`, `pr-42`).
+      # Sole source of image metadata (the Dockerfiles carry no LABELs, see APPENDIX.md#oci-metadata).
+      # `latest` comes free from `flavor: latest=auto`. `type=ref` tags only name non-publishing builds.
       - name: Docker metadata (tags, labels, annotations)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
@@ -102,9 +94,7 @@ jobs:
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
 
-      # On publish runs this pushes the multi-arch index; on pull requests push=false, so both
-      # arches build (validation) but nothing is pushed. oci-mediatypes=true makes the pushed index,
-      # manifests, config, and layers use OCI media types instead of Docker schema 2.
+      # oci-mediatypes=true makes everything pushed use OCI media types, not Docker schema 2.
       - name: Build (and push on publish runs)
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
@@ -119,10 +109,8 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.variant }}
           cache-to: type=gha,scope=${{ matrix.variant }},mode=max
 
-      # A publish is only "done" when the pushed image carries both arches (hard rule 8) and uses
-      # OCI media types end to end. assert_oci_registry.sh checks the index, both arches, and every
-      # manifest/config/layer; crane then validates the image is well-formed and pullable. Both target
-      # the version tag (what consumers pin); the digest match proves `latest` moved onto this release.
+      # Done only when the version tag (what consumers pin) has both arches and OCI media types
+      # throughout (hard rule 8), and `latest` resolves to the same digest.
       - name: Install crane
         if: env.PUBLISH == 'true'
         uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7

@@ -13,7 +13,7 @@ checkout with one `docker run`, no installing tools by hand. They're plain OCI i
 anywhere that speaks OCI, not just Docker: Podman, containerd, nerdctl, your CI runner. Three images:
 
 - **`linterpol`** (lean): static-binary linters for the common stack (hadolint, shellcheck, ...).
-- **`linterpol-jvm`**: a JRE plus JVM-language linters (ktlint). Kept separate so the lean image
+- **`linterpol-jvm`**: a JRE plus JVM-language linters (ktlint, detekt). Kept separate so the lean image
   stays JVM-free for the repos that pin it and don't lint JVM languages.
 - **`linterpol-dotnet`**: the .NET runtime plus C# linters (CSharpier). Separate for the same
   reason, so the lean image stays .NET-free.
@@ -33,7 +33,7 @@ Apple Silicon and on the usual x86 CI runners. In CI, pin a version rather than 
 - **`linterpol`**: hadolint, actionlint, shellcheck, ruff,
   biome (JSON/JSONC plus JS/TS/CSS/GraphQL), buf (Protobuf), swiftlint, rumdl, ryl,
   container-structure-test, and shellspec (shell BDD tests).
-- **`linterpol-jvm`**: ktlint (Kotlin), with more JVM-language linters to come.
+- **`linterpol-jvm`**: ktlint (Kotlin formatting) and detekt (Kotlin code smells).
 - **`linterpol-dotnet`**: CSharpier (C#), a file-level formatter run in its read-only `check` mode.
 
 Full list with versions in [LINTERS.md](./LINTERS.md).
@@ -61,6 +61,7 @@ and run its tools:
 ```bash
 jvm=ghcr.io/lahaluhem/linterpol-jvm:latest
 docker run --rm -v "$PWD:/work:ro" "$jvm" ktlint
+docker run --rm -v "$PWD:/work:ro" "$jvm" detekt
 ```
 
 Same contract again for the dotnet image. CSharpier is a formatter, so in CI use its read-only
@@ -71,15 +72,15 @@ dotnet=ghcr.io/lahaluhem/linterpol-dotnet:latest
 docker run --rm -v "$PWD:/work:ro" "$dotnet" csharpier check .
 ```
 
-Run any image with no args and it self-checks, printing its tools' versions (the lean image's full set;
-the jvm image's `java` + `ktlint`; the dotnet image's `dotnet` + `csharpier`).
+Run any image with no args and it self-checks, printing its tools' versions.
 
 It runs as a non-root user (`lint`), so it reads world-readable repo files (the usual case)
 and never writes to your mount.
 
-Three tools need more than pointing them at the mount: `container-structure-test` inspects a built
-image, `shellspec` runs a `spec/` suite, and `buf breaking` needs a baseline it can reach. Each is
-written up in [LINTERS.md#caveats](./LINTERS.md#caveats).
+Some tools need more than pointing them at the mount: `container-structure-test` inspects a built
+image, `shellspec` runs a `spec/` suite, `buf breaking` needs a baseline it can reach, and `detekt`
+needs a classpath for its rules that use types. Each is written up in
+[LINTERS.md#caveats](./LINTERS.md#caveats).
 
 ## Versions
 
@@ -102,9 +103,9 @@ on `PATH`, and the runtime contract (non-root `lint`, `/work`, no entrypoint, bo
 
 | Bump | The interface | Typical triggers |
 |---|---|---|
-| **major** | **breaks.** Your existing `docker run` needs changing. | a tool removed or replaced; an image renamed or dropped; the `/work` or non-root `lint` contract changed; an entrypoint added; an arch dropped |
-| **minor** | **grows**, or a tool's own rules shift under you. | a tool added; a new variant image; an arch added; a bundled tool's own **major** bump (stricter defaults, renamed config keys) |
-| **patch** | **unchanged.** | tool patch and minor bumps (most of Renovate's traffic); base-image digest bumps; build internals; docs |
+| **major** | **breaks.** Your existing `docker run` needs changing. | a tool removed or replaced, an image renamed or dropped, the `/work` or non-root `lint` contract changed, an entrypoint added, an arch dropped |
+| **minor** | **grows**, or a tool's own rules shift under you. | a tool added, a new variant image, an arch added, a bundled tool's own **major** bump (stricter defaults, renamed config keys) |
+| **patch** | **unchanged.** | tool patch and minor bumps (most of Renovate's traffic), base-image digest bumps, build internals, docs |
 
 > **No level promises your lint run still passes.** Even a patch can carry a rule addition that flags
 > code which was clean yesterday. That's the nature of bundling linters: what the levels promise is
@@ -144,11 +145,11 @@ Within an image, tools come in two lanes, picked by how a tool ships:
 
 - **Lane 1, static binaries** (Go/Rust/Haskell): one build stage per tool, then `COPY` the
   binary into the final image. Tiny and natively multi-arch. Most modern linters land here.
-- **Lane 2, tools with no usable static image**: an npm/pip/apt/NuGet install block, or a single
-  prebuilt binary downloaded and verified (swiftlint, container-structure-test, rumdl, ktlint, csharpier).
+- **Lane 2, tools with no usable static image**: an npm/pip/apt/NuGet install block, or a prebuilt
+  binary downloaded and verified. [LINTERS.md](./LINTERS.md) shows which tool sits in which lane.
 
-Adding a linter touches just its lane, plus a row in [LINTERS.md](./LINTERS.md), where the
-steps live.
+Adding a linter touches only its lane, since its row in [LINTERS.md](./LINTERS.md) is generated from
+the Dockerfile. The steps are in [LINTERS.md#adding-a-linter](./LINTERS.md#adding-a-linter).
 
 <details>
 <summary>Why not super-linter or MegaLinter?</summary>
@@ -163,10 +164,9 @@ linter list myself, but that's the whole point here.
 
 ## Roadmap
 
-All three images publish multi-arch; `linterpol-dotnet` (CSharpier) is the newest sibling. More
-JVM-language linters (detekt and others) can still follow in the jvm image. Beyond that it's keeping
-the tool set current (Renovate handles the bumps) and adding tools, or new stack siblings, as I reach
-for them in other repos.
+All three images publish multi-arch, and `linterpol-dotnet` (CSharpier) is the newest sibling. Beyond
+that it's keeping the tool set current (Renovate handles the bumps) and adding tools, or new stack
+siblings, as I reach for them in other repos.
 
 On registry hygiene: releases carry immutable version tags, so every published digest stays anchored
 by a tag ([#15](https://github.com/LahaLuhem/linterpol/issues/15)). The weekly prune

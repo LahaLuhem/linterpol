@@ -1,7 +1,7 @@
-# AGENTS.md — `Linterpol`
+# AGENTS.md: `Linterpol`
 
 Tool-agnostic brief for any coding agent (Claude Code, Copilot, Cursor, Codex, ...) working
-in this repo. Claude-Code-specific guidance lives in [CLAUDE.md](./CLAUDE.md); design
+in this repo. Claude-Code-specific guidance lives in [CLAUDE.md](./CLAUDE.md), and design
 rationale and rejected paths live in [`APPENDIX.md`](./APPENDIX.md) (anchor-keyed). Read this
 first.
 
@@ -19,15 +19,15 @@ Three images today, one per `images/<variant>/Dockerfile`:
   **biome** (JSON/JSONC + JS/TS/CSS/GraphQL), **swiftlint** (Swift),
   **rumdl** (Markdown), **ryl** (YAML), **container-structure-test** (container image structure),
   **shellspec** (shell BDD tests, [the first test tool, not a linter](./APPENDIX.md#shellspec-test-framework)).
-- **`linterpol-jvm`** (sibling): a JRE plus **ktlint** (Kotlin). Separate so the lean image stays
-  JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
+- **`linterpol-jvm`** (sibling): a JRE plus **ktlint** and **detekt** (Kotlin). Separate so the
+  lean image stays JVM-free. See [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant).
 - **`linterpol-dotnet`** (sibling): the .NET runtime plus **CSharpier** (C#). Separate so the lean
-  image stays .NET-free; file-level only (no SDK or build tooling). See
+  image stays .NET-free. File-level only (no SDK or build tooling). See
   [`APPENDIX.md#dotnet-variant`](./APPENDIX.md#dotnet-variant).
 
 Full list: [`LINTERS.md`](./LINTERS.md).
 
-## Scope — what this repo is and is NOT
+## Scope: what this repo is and is NOT
 
 - **In scope:** building and publishing the combined tools images (the per-variant Dockerfiles, the
   build/publish workflow, the bundled-tool manifest).
@@ -37,32 +37,32 @@ Full list: [`LINTERS.md`](./LINTERS.md).
 
 ## Stack
 
-- **Docker Buildx** — multi-platform builds. The publish path is a **single-job** multi-arch
+- **Docker Buildx**: multi-platform builds. The publish path is a **single-job** multi-arch
   build (`buildx --platform linux/amd64,linux/arm64 --push`), not a native-runner matrix: the
   image only lands prebuilt per-arch binaries (a `COPY --from` for Lane 1, a verified download for
   Lane 2), so there is no native compilation and the QEMU penalty is negligible. See
   [`APPENDIX.md#single-job-buildx`](./APPENDIX.md#single-job-buildx).
-- **Per-stack image variants** — one image per `images/<variant>/Dockerfile`: the lean `linterpol`,
+- **Per-stack image variants**: one image per `images/<variant>/Dockerfile`: the lean `linterpol`,
   the `linterpol-jvm` sibling (a JRE + JVM linters), and the `linterpol-dotnet` sibling (a .NET
   runtime + CSharpier). Independent images, picked by base runtime. See
   [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant) and
   [`APPENDIX.md#dotnet-variant`](./APPENDIX.md#dotnet-variant).
-- **Two-lane architecture** (within an image) — static-binary tools with an official image (Lane 1)
+- **Two-lane architecture** (within an image): static-binary tools with an official image (Lane 1)
   vs downloaded-binary / package-manager tools (Lane 2), orthogonal to the variant axis. See
   [`LINTERS.md`](./LINTERS.md) and [`APPENDIX.md#two-lane-architecture`](./APPENDIX.md#two-lane-architecture).
-- **GitHub Actions** — `.github/workflows/`: `test.yml` self-test, `build_and_push.yml` publish,
+- **GitHub Actions** in `.github/workflows/`: `test.yml` self-test, `build_and_push.yml` publish,
   `release.yml` manual semver bump + tag, `regen-linters.yml` LINTERS.md regen (any Dockerfile
   change), `cleanup-packages.yml` weekly GHCR prune.
-- **Semver releases** — a bare `1.2.3` git tag is the only thing that publishes; `release.yml` cuts
-  it from a `workflow_dispatch` bump level. See
+- **Semver releases**: a bare `1.2.3` git tag is the only thing that publishes, and `release.yml`
+  cuts it from a `workflow_dispatch` bump level. See
   [`APPENDIX.md#versioning-releases`](./APPENDIX.md#versioning-releases).
-- **GHCR** — `ghcr.io/lahaluhem` (lowercase; GHCR namespaces are lowercase).
-- **Renovate** — version tracking (`.github/renovate.jsonc`): `config:best-practices` digest-pins
-  and bumps the `FROM`s and SHA-pins the workflow actions; a `custom.regex` manager bumps the
-  `ARG`-pinned tool versions (`container-structure-test`, `swiftlint`, `rumdl`, `ryl`, `shellspec`,
-  `ktlint`, `csharpier`). Weekly. See
+- **GHCR**: `ghcr.io/lahaluhem`, lowercase because GHCR namespaces are.
+- **Renovate** (`.github/renovate.jsonc`) tracks versions: `config:best-practices` digest-pins
+  and bumps the `FROM`s and SHA-pins the workflow actions. A `custom.regex` manager bumps every
+  `ARG <NAME>_VERSION` under a `# renovate:` marker. Weekly. See
   [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
-- **Bash** — `scripts/build.sh` (local build + self-check) and `scripts/gen-linters.sh`.
+- **Bash**: `scripts/build.sh` (local build + self-check), `scripts/test.sh` (the check suite) and
+  `scripts/gen-linters.sh`.
 
 ## Repo layout
 
@@ -70,7 +70,7 @@ Full list: [`LINTERS.md`](./LINTERS.md).
 linterpol/
 ├── images/                 one Dockerfile per image variant
 │   ├── lean/Dockerfile     lean tools image (linterpol:latest); two lanes, FROMs pinned tag@digest
-│   ├── jvm/Dockerfile      JVM sibling (linterpol-jvm:latest); Temurin JRE + ktlint
+│   ├── jvm/Dockerfile      JVM sibling (linterpol-jvm:latest); Temurin JRE + JVM linters
 │   └── dotnet/Dockerfile   .NET sibling (linterpol-dotnet:latest); .NET runtime + CSharpier
 ├── scripts/
 │   ├── build.sh            host-arch build + self-check of any/all variants (linterpol[-<v>]:local)
@@ -80,11 +80,11 @@ linterpol/
 │   ├── image-structure-jvm.yaml     ... and for the jvm image
 │   └── image-structure-dotnet.yaml  ... and for the dotnet image
 ├── .dockerignore
-├── LINTERS.md              bundled-tools manifest; the table is generated from the Dockerfile
+├── LINTERS.md              bundled-tools manifest; the tables are generated from the Dockerfiles
 ├── README.md               what it is, usage, architecture
 ├── APPENDIX.md             design rationale (anchor-keyed)
 ├── .github/
-│   ├── renovate.jsonc      config:best-practices + a custom manager for c-s-t; weekly
+│   ├── renovate.jsonc      config:best-practices + custom managers (ARG pins, biome.json); weekly
 │   └── workflows/
 │       ├── test.yml             self-test / dogfood (structure test + lint + LINTERS.md drift check)
 │       ├── build_and_push.yml   single-job multi-arch publish (version tags only)
@@ -106,19 +106,19 @@ hypothetical futures.
 
 ## Hard rules
 
-1. **Scope is build + publish the tools images.** Don't add consumer-specific logic; consumption
+1. **Scope is build + publish the tools images.** Don't add consumer-specific logic. Consumption
    is portable and out of scope.
 2. **Registry is `ghcr.io/lahaluhem`** (lowercase).
-3. **One image per stack; two lanes within each; one tool = one unit of change.** Each image is an
+3. **One image per stack, two lanes within each, and one tool is one unit of change.** Each image is an
    `images/<variant>/Dockerfile`: the lean `linterpol`, the `linterpol-jvm` sibling, and the
    `linterpol-dotnet` sibling. A new heavy-runtime stack is a new sibling (`images/<variant>/Dockerfile`, published as
    `linterpol-<variant>`, with its own `tests/image-structure-<variant>.yaml` and a `linters:<variant>`
    section in `LINTERS.md`), not tools bolted onto the lean image. Within an image, a static binary with
    an official image goes in **Lane 1** (a `# linter:` annotation + `FROM <img>:<tag>@<digest> AS <name>`
-   + `COPY --from=<name> …`); a tool with no usable official image goes in **Lane 2** (a package-manager
+   + `COPY --from=<name> …`). A tool with no usable official image goes in **Lane 2** (a package-manager
    install block, or a prebuilt binary downloaded and verified in a stage then `COPY`d in), with a
    self-contained `# linter:` annotation. Lanes are orthogonal to variants. Every bundled tool gets a row
-   in [`LINTERS.md`](./LINTERS.md), whose tables are **generated** from the Dockerfiles; CI
+   in [`LINTERS.md`](./LINTERS.md), whose tables are **generated** from the Dockerfiles. CI
    (`regen-linters.yml`) regenerates and commits on any Dockerfile change, so don't hand-edit or commit
    it (run `./scripts/gen-linters.sh` locally only to preview). See
    [`APPENDIX.md#jvm-variant`](./APPENDIX.md#jvm-variant),
@@ -128,23 +128,23 @@ hypothetical futures.
    ships both arches: `docker buildx imagetools inspect <ref>` should show an image index with
    both platforms. (All current tools do, natively.)
 5. **Pin upstreams by digest** (`tag@sha256:…`: the tag is the readable version, the digest makes
-   the build reproducible). The exceptions are the downloaded tools (`container-structure-test`,
-   `swiftlint`, `rumdl`, `ryl`, `shellspec`, `ktlint`), which have no usable image and are version-pinned + verified at build (each
-   version lives in an `ARG <NAME>_VERSION`). Don't hand-edit a digest or those versions except when
-   adding/removing a tool; **Renovate owns the bumps**. See
+   the build reproducible). The exceptions are the Lane-2 downloads, which have no usable image and
+   are version-pinned and verified at build (each version lives in an `ARG <NAME>_VERSION`). Don't
+   hand-edit a digest or those versions except when adding or removing a tool, since **Renovate owns
+   the bumps**. See
    [`APPENDIX.md#reproducibility-renovate`](./APPENDIX.md#reproducibility-renovate).
 6. **Publishing is outward-facing, so confirm-first**, and gated to **version tags**: a bare semver
    tag (`1.2.3`) publishes `1.2.3` + `1.2` + `1` + `latest`, while `main` pushes and pull requests
    build-validate both arches without pushing. Cut a release from the **Release** workflow
-   (`workflow_dispatch`, bump level `patch`/`minor`/`major`); never hand-push a version tag. The levels
+   (`workflow_dispatch`, bump level `patch`/`minor`/`major`). Never hand-push a version tag. The levels
    version **this image's interface**, not whether a repo still lints clean: **major** only when an
    existing `docker run` breaks (tool removed, `/work` or non-root `lint` contract changed, image
    renamed, arch dropped), **minor** when it grows or a tool's rules shift (tool added, new variant,
    **a bundled tool's own major bump**), **patch** for tool patch/minor bumps, base-image digests,
    build internals, and docs. Canonical table:
-   [`README.md#what-a-bump-level-means`](./README.md#what-a-bump-level-means); rationale:
+   [`README.md#what-a-bump-level-means`](./README.md#what-a-bump-level-means), rationale:
    [`APPENDIX.md#versioning-releases`](./APPENDIX.md#versioning-releases).
-7. **Verify versions/digests against registries before pinning** — never from memory.
+7. **Verify versions/digests against registries before pinning**, never from memory.
 8. **Never claim a multi-arch publish succeeded** without `docker manifest inspect <ref>` showing
    **both** `linux/amd64` and `linux/arm64`.
 9. **Image metadata is workflow-owned.** Published images use OCI media types
@@ -166,60 +166,60 @@ hypothetical futures.
    push is what triggers a publish. It pre-flights first: main only, and no failing or in-flight
    checks on HEAD.
 4. `build_and_push.yml` does a matrix multi-arch build and pushes `linterpol`, `linterpol-jvm`, and
-   `linterpol-dotnet` as `1.2.3` + `1.2` + `1` + `latest`. Version tags only; `main` pushes and PRs
+   `linterpol-dotnet` as `1.2.3` + `1.2` + `1` + `latest`. Version tags only. `main` pushes and PRs
    build-validate both arches without pushing.
-5. Renovate bumps the `FROM` digests, action pins, and the `container-structure-test` version weekly.
+5. Renovate bumps the `FROM` digests, action pins, and the `ARG`-pinned tool versions weekly.
 6. On any Dockerfile change (a Renovate or manual PR, or a push to `main`), `regen-linters.yml`
    regenerates `LINTERS.md` and commits it back via the lahaluhem-ci-bot App token, so `test.yml`'s
-   drift check clears automatically. (Don't commit `LINTERS.md` by hand; CI owns it.)
+   drift check clears automatically. (Don't commit `LINTERS.md` by hand. CI owns it.)
 
 ## Testing
 
-- `./scripts/build.sh` builds locally (host arch); `./scripts/test.sh` runs the full check suite
+- `./scripts/build.sh` builds locally (host arch), and `./scripts/test.sh` runs the full check suite
   locally (`lint` / `structure` / `oci`, or a single target), the same thing CI runs. No CI round-trip.
 - To add a tool: add it to its lane (with its `# linter:` annotation), build locally, confirm it
   runs on this arch, and (Lane 1) confirm the upstream ships `arm64`. Leave [`LINTERS.md`](./LINTERS.md)
-  to CI (`regen-linters.yml`); run `./scripts/gen-linters.sh` locally only to preview the table.
+  to CI (`regen-linters.yml`), and run `./scripts/gen-linters.sh` locally only to preview the tables.
 
 ## Code style (no separate CODESTYLE.md yet)
 
-The surface is small (one Dockerfile, a couple of shell scripts, soon some workflow YAML), so:
+The surface is small (a Dockerfile per image, a few shell scripts, the workflow YAML), so:
 
-- **Dockerfile:** two lanes; one `FROM` + one `COPY` per Lane-1 tool, each with a `# linter:`
-  annotation above its `FROM` (feeds `LINTERS.md`); pin `tag@digest`; in Lane 2 clean apt lists in
-  the same layer (`rm -rf /var/lib/apt/lists/*`). No `org.opencontainers.image.*` `LABEL`s; image
-  metadata is workflow-owned (hard rule 9). The image runs as the non-root `lint` user and expects
+- **Dockerfile:** two lanes. One `FROM` + one `COPY` per Lane-1 tool, each with a `# linter:`
+  annotation above its `FROM` (feeds `LINTERS.md`). Pin `tag@digest`. In Lane 2, clean apt lists in
+  the same layer (`rm -rf /var/lib/apt/lists/*`). No `org.opencontainers.image.*` `LABEL`s, since
+  image metadata is workflow-owned (hard rule 9). The image runs as the non-root `lint` user and expects
   the repo mounted read-only at `/work`.
-- **Workflow YAML:** 2-space indent; pin actions by **SHA + a version comment** (so Renovate
-  tracks them); keep `run:` blocks `actionlint`/shellcheck-clean; and run `ryl` on touched YAML
+- **Workflow YAML:** 2-space indent. Pin actions by **SHA + a version comment** (so Renovate
+  tracks them). Keep `run:` blocks `actionlint`/shellcheck-clean, and run `ryl` on touched YAML
   before calling it done (`test.yml` lints all YAML with it, per `.ryl.toml`), since `actionlint`
   alone doesn't catch everything `ryl` does.
-- **Bash:** `set -euo pipefail`; quote expansions.
-- **Comments: one or two lines, not a thesis.** Comment the *why* and the surprising; skip what the
+- **Bash:** `set -euo pipefail`, and quote expansions.
+- **Comments: one or two lines, not a thesis.** Comment the *why* and the surprising, and skip what the
   line already says. A point needing a paragraph is rationale, so it belongs in `APPENDIX.md` behind
   an anchor with a one-line pointer here. Applies to YAML, Dockerfiles, and shell alike. **Why:** a
   wall-of-text comment block buries the one line that mattered, and it rots faster than the code.
   **How to apply:** when you edit near a comment that has outgrown its point, trim it in the same
   pass.
-- **Docs:** don't hardcode a tool *count* in prose (e.g. "the lean image's nine"); it churns on
-  every tool add. Enumerate tools where it helps, or use count-free phrasing; the generated
+- **Docs:** don't hardcode a tool *count* in prose (e.g. "the lean image's nine"), since it churns
+  on every tool add. Enumerate tools where it helps, or use count-free phrasing. The generated
   `LINTERS.md` is the canonical list.
 
-## Status & remaining polish (as of 2026-07-31; prune as done)
+## Status & remaining polish (as of 2026-07-31, prune as done)
 
 The image (now including container-structure-test), `scripts/build.sh`, digest pins, and Renovate
 are in place and verified. To finish the standalone setup:
 
-- [x] **Pick the final name** (`Linterpol`); renamed across the image `LABEL`s, `README`, the
+- [x] **Pick the final name** (`Linterpol`), renamed across the image `LABEL`s, `README`, the
       local tag, and consumer repos' image-ref defaults.
 - [x] **`README.md` finalized** (usage, architecture, roadmap).
 - [x] **`LICENSE` added** (MIT).
-- [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image; also runs
+- [x] **`test.yml`**: self-test / dogfood workflow (build + lint this repo with the image, and run
       `./scripts/gen-linters.sh --check`).
 - [x] **`build_and_push.yml`**: single-job buildx multi-arch publish, gated to version tags.
-- [x] **`container-structure-test` added** (Lane-2 downloaded binary; both arches verified, in
+- [x] **`container-structure-test` added** (Lane-2 downloaded binary, both arches verified, in
       `LINTERS.md`).
-- [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `regen-linters.yml`; tracks the
+- [x] **Migrated Dependabot → Renovate** (`.github/renovate.jsonc` + `regen-linters.yml`, tracking the
       `FROM`s, action SHAs, and the c-s-t version).
 - [x] **First GHCR publish** done and verified: `ghcr.io/lahaluhem/linterpol:latest` is a multi-arch
       manifest (linux/amd64 + linux/arm64), and downstream consumers pin a digest of it.
